@@ -1,0 +1,3 @@
+name=Assembly Vale
+launch=index.html
+server=server.js

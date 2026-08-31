@@ -1,0 +1,18 @@
+[
+  { "name": "ui-click", "seconds": 1, "prompt": "Short soft wooden button click, gentle fingertip tap on a small hardwood toggle", "event": "ui" },
+  { "name": "tool-clink", "seconds": 1, "prompt": "Single bright metallic clink of a steel wrench tapped against a workbench vice", "event": "tool" },
+  { "name": "place-thunk", "seconds": 1, "prompt": "Solid wooden crate set down on a concrete workshop floor, low resonant thunk", "event": "place" },
+  { "name": "remove-scrape", "seconds": 1, "prompt": "Wooden plank pulled free with a quick dry scrape ending in a soft thud", "event": "remove" },
+  { "name": "rotate-ratchet", "seconds": 1, "prompt": "Two quick crisp mechanical ratchet clicks, small metal pawl turning", "event": "rotate" },
+  { "name": "upgrade-servo", "seconds": 2, "prompt": "Rising electric servo whir building up and ending with a metallic latch snap", "event": "upgrade" },
+  { "name": "invalid-buzz", "seconds": 1, "prompt": "Short dull rubbery error buzz, low muted electric honk through a small speaker", "event": "invalid" },
+  { "name": "craft-hammer", "seconds": 1, "prompt": "Small hammer tap striking a metal machine part, bright ringing clink with short decay", "event": "craft" },
+  { "name": "deliver-chime", "seconds": 2, "prompt": "Vintage cash register chime with a brief jingle of coins dropping into a metal drawer", "event": "deliver" },
+  { "name": "contract-stamp", "seconds": 2, "prompt": "Heavy rubber stamp thunk on paper followed by a warm small bell chime", "event": "contract" },
+  { "name": "spoil-splat", "seconds": 1, "prompt": "Wet squelching splat of overripe produce hitting the ground, soft decaying thud", "event": "spoil" },
+  { "name": "win-fanfare", "seconds": 3, "prompt": "Cheerful short brass fanfare flourish with bright jingle bells at the end", "event": "win" },
+  { "name": "lose-fall", "seconds": 3, "prompt": "Low descending trombone slide, sad comical wah falling to a quiet stop", "event": "lose" },
+  { "name": "undo-zip", "seconds": 1, "prompt": "Quick airy zip of a tape measure rewinding fast, light mechanical swish", "event": "undo" },
+  { "name": "hint-chime", "seconds": 1, "prompt": "Soft sparkling chime, gentle glass rod ping with a delicate shimmer tail", "event": "hint" },
+  { "name": "star-sparkle", "seconds": 1, "prompt": "Bright twinkling glockenspiel sparkle, high shimmering notes like a star appearing", "event": "star" }
+]
