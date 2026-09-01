@@ -12,6 +12,7 @@ var AudioMod = window.AVAudio;
 // ---------- settings (persisted) ----------
 function loadSettings() { return Object.assign({}, Store.DEFAULT_SETTINGS, Store.load().settings); }
 function saveSettings(s) { var doc = Store.load(); doc.settings = s; Store.save(doc); }
+var settings = loadSettings();
 
 // ---------- session state ----------
 var screen = 'title';       // title | mode-select | play | paused | results | help
@@ -527,7 +528,7 @@ function init() {
   el.root = document.getElementById('root');
   el.boardCanvas = null; // set in renderPlay via canvas id lookup below
   var c = document.getElementById('board'); if (c) el.boardCanvas=c;
-  startAudio();
+  // WebAudio is unlocked by startRound's user gesture, never during page load.
   render();
 }
 
