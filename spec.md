@@ -1,6 +1,6 @@
 # Assembly Vale — Product and Game Specification
 
-**Document status:** design specification only; no implementation is included.  
+**Document status:** design specification; the shipped build implements the rules engine, content, and a 2D canvas presentation of the interface layer described below.
 **Game index:** 61  
 **Genre:** Production optimization game  
 **Players:** 1 player; optional asynchronous score comparison  

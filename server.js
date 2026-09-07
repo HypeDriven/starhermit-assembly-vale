@@ -18,6 +18,9 @@ var MIME = {
   '.css':  'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.txt':  'text/plain; charset=utf-8',
+  '.svg':  'image/svg+xml',
+  '.png':  'image/png',
+  '.ico':  'image/x-icon',
   '.opus': 'audio/ogg'
 };
 
@@ -27,14 +30,21 @@ function send(res, code, body, type) {
 }
 
 var server = http.createServer(function (req, res) {
-  var u = urlmod.parse(req.url);
-  var p = decodeURIComponent(u.pathname || '/');
+  var p;
+  try {
+    var u = urlmod.parse(req.url);
+    p = decodeURIComponent(u.pathname || '/');
+  } catch (err) {
+    send(res, 400, 'bad request');
+    return;
+  }
 
-  if (p === '/' ) { send(res, 200, 'Assembly Vale', 'text/plain; charset=utf-8'); return; }
   if (p === '/api/v1/time') { send(res, 200, JSON.stringify({ time: Date.now() }), MIME['.json']); return; }
+  if (p === '/' || p === '') p = '/index.html';
 
-  // static files from the distribution root
-  var fp = path.join(ROOT, p);
+  // static files from the distribution root; never serve outside it
+  var fp = path.normalize(path.join(ROOT, p));
+  if (fp !== ROOT && fp.indexOf(ROOT + path.sep) !== 0) { send(res, 403, 'forbidden'); return; }
   fs.readFile(fp, function (err, data) {
     if (err) { send(res, 404, 'not found'); return; }
     var ext = path.extname(fp).toLowerCase();

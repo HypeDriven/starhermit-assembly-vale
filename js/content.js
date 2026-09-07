@@ -399,12 +399,17 @@
 
   function challengeCfg(id) {
     var c = CHALLENGES.filter(function (x) { return x.id === id; })[0];
-    return c ? stageCfg(c, 'challenge') : null;
+    if (!c) return null;
+    var cfg = stageCfg(c, 'challenge');
+    cfg.challengeId = c.id;
+    return cfg;
   }
 
   function practiceCfg(difficulty, seed) {
-    var p = PRACTICE[difficulty] || PRACTICE.standard;
-    var cfg = stageCfg(Object.assign({ id: 'practice-' + difficulty }, p), 'practice', seed);
+    var key = PRACTICE[difficulty] ? difficulty : 'standard';
+    var p = PRACTICE[key];
+    var cfg = stageCfg(Object.assign({ id: 'practice-' + key }, p), 'practice', seed);
+    cfg.practiceDifficulty = key;
     cfg.mechanics.undo = true;
     return cfg;
   }
