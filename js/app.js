@@ -54,6 +54,13 @@ function h(tag, attrs, children) {
 
 function clearNode(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
+// Decorative illustration; purely cosmetic, removed if the file is missing.
+function art(src, cls) {
+  var img = h('img', { class: 'art ' + (cls || ''), src: src, alt: '', 'aria-hidden': 'true', decoding: 'async' });
+  img.addEventListener('error', function () { if (img.parentNode) img.parentNode.removeChild(img); });
+  return img;
+}
+
 // ---------- audio lifecycle ----------
 function startAudio() { AudioMod.start(); AudioMod.applySettings(settings); AudioMod.setCaptions(!!settings.captions, setStatus); }
 function stopAudio() { AudioMod.suspend(); }
@@ -71,6 +78,7 @@ function renderTitle(root) {
     'Deliver them at the Exchange. Fulfilling every contract before the tick limit wins the round.'
   ]);
   root.appendChild(p);
+  root.appendChild(art('./assets/keyart.webp', 'keyart'));
 
   function btn(label, onClick) { return h('button', { class:'btn primary big', onclick:onClick }, [label]); }
   var actions = [];
@@ -222,6 +230,7 @@ function renderHelp(root) {
     h('li',null,['Keys: arrows move · Enter builds · Space runs a tick · A auto-run · B belt · M machine · R rotate · X remove · U upgrade · H hint · Z undo · P pause · Esc back.'])
   ]);
   root.appendChild(list);
+  root.appendChild(art('./assets/help-line.webp', 'illus'));
 
   var foot = h('footer',{class:'foot'},[h('small',null,['Rules and controls.'])]);
   var back=h('button',{class:'btn primary',onclick:function(){ setScreen(state && !state.terminal ? 'play' : 'title'); }},['Back']);
@@ -263,6 +272,7 @@ function renderResults(root) {
     h('li',null,['Ticks used: ' + state.tick + (state.cfg.tickLimit ? (' / ' + state.cfg.tickLimit) : '')])
   ]);
   root.appendChild(list);
+  root.appendChild(art('./assets/exchange-ledger.webp', 'illus' + (won ? ' won' : ' lost')));
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
@@ -740,6 +750,7 @@ function playEvents(events) {
     else if (e.type==='rotate') { sfx('rotate'); spoke = 'Rotated to face ' + e.dir + '.'; }
     else if (e.type==='upgrade') { sfx('upgrade'); spoke = 'Upgraded to level ' + e.level + '.'; }
     else if (e.type==='craft') sfx('craft');
+    else if (e.type==='spawn') sfx('spawn');
     else if (e.type==='deliver') { sfx('deliver'); spoke = 'Sold ' + goodName(e.item) + ' for ' + e.value + ' gold.'; }
     else if (e.type==='contract-complete') { sfx('contract'); spoke = 'Contract complete: ' + goodName(e.item) + '.'; }
     else if (e.type==='spoil') { sfx('spoil'); spoke = goodName(e.item) + ' was lost.'; }
@@ -805,7 +816,7 @@ function setAuto(on) {
     AudioMod.setHum(false);
   }
 }
-function toggleAuto() { setAuto(!autoTimer); sfx('ui'); refreshPlay(); }
+function toggleAuto() { setAuto(!autoTimer); sfx('auto'); refreshPlay(); }
 
 function toggleMute() {
   settings.muted = !settings.muted;

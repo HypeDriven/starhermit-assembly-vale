@@ -20,3 +20,5 @@ Generated with MOSS-SoundEffect v2.0, 48 kHz mono Opus (96 kbps VBR, loudness-no
 | undo-zip.opus | undo | Quick airy zip of a tape measure rewinding fast, light mechanical swish |
 | hint-chime.opus | hint | Soft sparkling chime, gentle glass rod ping with a delicate shimmer tail |
 | star-sparkle.opus | star | Bright twinkling glockenspiel sparkle, high shimmering notes like a star appearing |
+| mine-spawn.opus | spawn | Very soft single pebble dropping out of a wooden mine chute onto packed earth, tiny dry tock |
+| conveyor-motor.opus | auto | Small electric conveyor motor spinning up with a gentle belt slap, half a second, settling to a low purr |

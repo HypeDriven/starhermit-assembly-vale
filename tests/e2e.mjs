@@ -29,6 +29,7 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg',
@@ -300,7 +301,7 @@ async function runPass(passName, contextOpts) {
 
 // The shipped server must serve the game at '/' and refuse path escapes.
 async function checkShippedServer() {
-  const port = 8199;
+  const port = Number(process.env.E2E_SERVER_PORT) || 8117;
   const child = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
     env: { ...process.env, PORT: String(port) },
     stdio: 'ignore',

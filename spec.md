@@ -1,262 +1,346 @@
-# Assembly Vale — Product and Game Specification
+# Assembly Vale — Game Design Document (running spec)
 
-**Document status:** design specification; the shipped build implements the rules engine, content, and a 2D canvas presentation of the interface layer described below.
-**Game index:** 61  
-**Genre:** Production optimization game  
-**Players:** 1 player; optional asynchronous score comparison  
-**Targets:** desktop browsers, mobile browsers, landscape and portrait where practical  
-**Rendering direction:** Three.js-first presentation with a fully usable semantic HTML interface layer
+Assembly Vale is a single-player, turn-tick production puzzle: lay conveyor belts from a mine to the Exchange, drop refining machines on the line, and fill every contract before the tick limit. This document describes the shipped game as it behaves today. Anything not yet built is listed at the end under "Design intent not yet implemented".
 
-## 1. Product vision
+## 1. Overview
 
-Assembly Vale is a game in which players place production stations and conveyors to turn raw inputs into increasingly valuable goods. Its signature setting is a clean valley-sized factory diorama. The product should feel immediately understandable, responsive within one input, and polished enough that the board or playfield itself is the visual hero. Sessions should begin quickly, make the next useful action obvious without solving the game for the player, and end with a clear explanation of score and progress.
+| | |
+|---|---|
+| Pitch | A valley-sized factory diorama where every build costs a tick and the clock only moves when you say so. |
+| Genre | Production optimization / logistics puzzle, deterministic, no real-time pressure |
+| Players | 1; asynchronous best-score comparison through local progress |
+| Session | 2–6 minutes per round (120–360 ticks at 420 ms per auto-run tick, plus planning). A full Journey is 40 rounds. |
+| Platforms | Desktop and mobile browsers; portrait and landscape |
+| Rendering | Semantic HTML shell built by `js/app.js`; the board is a single 2D `<canvas>` redrawn from rules state. `vendor/three.module.min.js` is vendored but never loaded. |
+| Audio | WebAudio synthesis with authored Opus one-shots layered on top (`sfx/`) |
+| Persistence | `localStorage` key `assemblyvale.save.v1` (versioned, checksummed) |
 
-The experience must be original. Do not copy names, layouts, characters, iconography, writing, audio, progression maps, or level data from an existing title. Use an original visual language, original procedural assets, and internally authored content.
+File map:
 
-### Design pillars
+| Path | Role |
+|---|---|
+| `index.html` | Entry point; loads the five classic scripts then `js/app.js` as a module. Cache-busted with `?v=gdd-1`. |
+| `js/rng.js` | mulberry32 PRNG, FNV-1a `hashString`, three derived streams (rules, decor, av). UMD (`window.AVRNG`). |
+| `js/rules.js` | Pure deterministic rules engine: `createGame`, `applyCommand`, `simulate`, legality checks, `hint`, hashing, serialization. UMD (`window.AVRules`). |
+| `js/content.js` | Versioned data: goods, recipes, five themes, twelve ASCII layouts, 40 Journey stages, 5 lessons, 5 challenges, 3 practice presets, Score Chase, daily generator, `validateStage`. UMD (`window.AVContent`). |
+| `js/store.js` | Save document (settings + progress) with FNV-1a checksum, migration, memory fallback; local leaderboard helpers. |
+| `js/audio.js` | Buses (music, effects, ambience, voice), 18 synthesized events, clip loader for `sfx/*.opus`, valley ambience, factory hum, generative pad. |
+| `js/app.js` | Screens, board drawing, input, hints, undo, auto-run, progress recording. All UI strings live here. |
+| `css/style.css` | Palette tokens, buttons, play layout, mobile breakpoint, reduced-motion rule. |
+| `server.js` | Optional Node static server plus `GET /api/v1/time`. Declared in `starhermit.txt` as `server=server.js`. |
+| `tests/rules.test.mjs` | 10 rules/content checks (`npm run test:rules`). |
+| `tests/e2e.mjs` | Playwright playthrough at 1280×800 and 390×844 + shipped-server check (`npm run test:e2e`). |
+| `sfx/manifest.txt` | Canonical SFX table (file, event id, sound, usage). `manifest.json` is the runtime/generator list of clips on disk, `manifest.md` is the human table. |
+| `assets/` | Key art and illustrations (`keyart.webp`, `exchange-ledger.webp`, `help-line.webp`). |
+| `coverart.png`, `icon.png`, `favicon.svg` | Store cover (1200×675), 256 px icon, tab icon. |
+| `starhermit.txt` | `name=Assembly Vale`, `launch=index.html`, `owner=…`, `server=server.js`, `cover=coverart.png`. |
+| `LICENSE.md` | PolyForm Noncommercial 1.0.0. |
 
-1. **Readable before spectacular:** legal actions, hazards, selection, ownership, and goals remain legible with effects disabled.
-2. **One-input confidence:** every press, tap, drag, key, or pointer action gives immediate visual and sonic acknowledgment.
-3. **Short path to play:** a returning player reaches the primary playfield in at most two deliberate actions.
-4. **Fair mastery:** randomness is seeded and inspectable; outcomes never depend on hidden purchases or invisible stat boosts.
-5. **Scalable beauty:** the same art direction survives low-power mobile hardware and high-resolution desktop displays.
+## 2. Vision and design pillars
 
-## 2. Core game design
+**The clock is yours.** Nothing moves until the player runs a tick (Space) or switches on auto-run (A). Every build, rotate, removal and upgrade also costs exactly one tick, so planning and running share one currency. Rules in: pausing at any time, unlimited thinking, undo where the mode allows. Rules out: real-time timers, input windows, anything that punishes slow reading.
 
-### Objective and rules contract
+**One line, then one machine.** The whole game is "goods ride belts the way the belt faces; a machine on the line turns one good into a better one". Rules in: four directions, one input and one output slot per machine, single-good contracts. Rules out: splitters, mergers, multi-input recipes, inventories, research trees.
 
-Place production stations and conveyors to turn raw inputs into increasingly valuable goods.
+**Gold is the only resource and it flows both ways.** Every sale pays gold immediately, gold buys the next building, leftover gold counts toward score when you win. Rules in: refunds on removal (half), cost scaling by stage. Rules out: energy, cooldowns, second currencies, cosmetic purchases.
 
-The rules engine must represent legal actions independently from rendering. It must expose legal-action queries, deterministic resolution, serializable state, a monotonically increasing turn/tick number, and a terminal-state reason. Tutorials and hints call the same legal-action API used by play rather than duplicating rules.
+**Inspectable and repeatable.** The same stage with the same command list always produces the same state hash. Seeds are visible in content, daily seeds derive from the UTC date, and the hint system uses the same legality functions the player does. Rules out: hidden multipliers, luck in resolution, hints that know things the rules do not expose.
 
-### Core loop
+**A tabletop you can read at a glance.** Sources are grey blocks with a letter, belts are brown with a gold arrow, machines are purple with a letter and level, the Exchange is a red `$`. Rules in: flat colour plus a glyph on every piece, a legend under the board, a text description of the selected cell. Rules out: effects that hide the arrow, camera moves, anything only expressed by animation.
 
-The repeated loop is: **place a machine, connect material flow, observe bottlenecks, upgrade, and unlock recipes**. Input is locked only during the shortest non-interruptible resolution phase. Cosmetic animation may continue after the logical state is ready, but skip/fast-forward must settle every object into the exact deterministic end state.
+## 3. Player experience
 
-### Scoring and victory
+Target player: someone who likes tidy logistics puzzles and short rounds — the "one more stage" player on a phone or in a browser tab — not the 40-hour factory optimizer.
 
-Score throughput and contract completion; simulation is deterministic. Results show a component breakdown rather than one unexplained total. Store integers for score and simulation units; format values only in presentation. Ties use, in order: primary objective completion, fewer invalid actions, lower authoritative elapsed time, then stable session identifier.
+First 60 seconds (as taught by the UI, `renderTitle` → `renderJourneySelect` → `startRound` in `js/app.js`):
 
-### Modes
+1. The title shows a one-paragraph rule summary, the key art, and seven mode buttons; **Play** or **Journey** is one tap away.
+2. Journey stage 1 "First Ford" opens with the Belt tool already selected (`startRound` sets `tool = 'belt'`), the selection on the ore mine, the contract row "Contract Ore: 0 / 5", and the status line "Round started. Pick a tool and build toward the Exchange."
+3. The footer hint (`hintText`) names a concrete cell: "Hint: place a belt at (2, 1) to carry goods onward." Pressing H selects that cell.
+4. New buildings face the Exchange along the longer axis (`preferredDir`), so a first line usually points somewhere useful without touching Rotate.
+5. Clicking rock says "Rock and water cannot be built on." and costs nothing; every refused action is explained in the status line (`REASON_TEXT`).
+6. The first ore sells within a few ticks with a chime and "Sold Ore for 5 gold." Five sales stamp the contract and the results screen appears.
 
-- **Learn:** interactive lessons introduce one rule at a time and require the player to perform the action.
-- **Journey:** authored progression with gradually combined mechanics and periodic mastery stages.
-- **Daily:** one shared seed and ruleset per UTC day, synchronized to platform time.
-- **Practice:** selectable difficulty, restart, undo where rules permit, and no effect on competitive rating.
-- **Challenge:** constrained goals such as move limits, speed targets, altered layouts, or restricted tools.
-- **Score chase:** asynchronous global and friends comparisons using validated seeds and rulesets.
+Lessons (Learn) are available from the title for players who want the rules one at a time; the Help screen (from Play or Pause) lists every rule and key.
 
-### Difficulty and content generation
+Session shape: pick a stage → build 4–12 pieces → run → watch a stall → fix it (rotate or extend) → run to completion → results with a component breakdown → "Next stage" or "Play again". The emotional beat the game is built around is the moment a stalled line starts flowing: goods that were piling up at a machine suddenly stream to the Exchange and the sale chimes come in a run.
 
-- Represent content as versioned data: identifier, seed, initial state, goals, allowed mechanics, par values, tutorial flags, and presentation theme.
-- Run offline validators to prove basic legality, reachable goals, bounded duration, and absence of soft locks. Logic puzzles additionally require a unique or explicitly accepted solution class.
-- Difficulty is measured from solution depth, branching factor, time pressure, motor precision, hidden information, and recovery options—not merely larger numbers.
-- Introduce one new concept in isolation, combine it with one known concept, then test mastery before adding another.
-- Daily seeds are immutable after publication. If content is defective, mark the day excluded from ranking rather than silently replacing it.
+## 4. Core loop and rules contract
 
-### Game-state model
+All rules live in `js/rules.js`; the UI never mutates state except through `applyCommand`.
 
-`boot → title → profile-ready → mode-select → preparing → tutorial/countdown → active ↔ paused/reconnecting → resolving → results → progression`.
+### Board and entities (`createGame`)
 
-Every transition has one owner and an explicit reason. Backgrounding pauses solo simulation. In hosted play, the authoritative clock continues where rules require it, while the returning client receives a fresh snapshot and a concise “while you were away” summary.
+- Grid of `cfg.board.cols × rows` cells (layouts are 6×4 up to 10×8). A cell is `null` (meadow) or one of:
+  - `rock` / `water`: terrain, never buildable (`INVALID.BLOCKED`).
+  - `source` `{item, dir, every, itemRef}`: emits one raw good (`ore`, `timber`, `wool`) every `every` ticks (4 or 5) onto itself; behaves like a belt for movement.
+  - `sink`: the Exchange; exactly one per layout.
+  - `belt` `{dir, itemRef}`: holds at most one good, moves it one cell per tick in `dir`.
+  - `machine` `{recipe, dir, level 1–3, prog, inBuf, outBuf}`: one input slot, one output slot.
+- Directions: `E S W N`; rotation order is that list (`DIR_ORDER`).
+- State fields: `tick`, `gold`, `builds`, `progress` (per contract good), `sold`, `contractDone`, `score {goods, contractBonus, goldLeft, speedBonus, total}`, `elapsedMs`, `terminal`, `events`.
 
-## 3. Interaction and user-interface design
+### Commands (`applyCommand`)
 
-### Information hierarchy
+| Command | Legality (`checkPlace` / `checkRotate` / `checkRemove` / `checkUpgrade`) | Effect |
+|---|---|---|
+| `place {x,y,kind,recipe,dir}` | in bounds, cell empty, build limit not reached, recipe in `allowedRecipes`, gold ≥ cost | Cell created, gold −cost, `builds`+1, tick+1 |
+| `rotate {x,y[,dir]}` | cell is belt or machine | Quarter turn clockwise (or explicit dir), tick+1 |
+| `remove {x,y}` | cell is belt or machine | Refund `floor(cost/2)`, any carried good is lost (`spoil` event), tick+1 |
+| `upgrade {x,y}` | `cfg.upgrades` true, cell is a machine below level 3, gold ≥ `upgradeCosts[level-1]` (25 then 45) | level+1, `prog` reset, tick+1 |
+| `tick` | round not over | tick+1, then `stepSimulation`, then `checkTerminal` |
+| `resign` | round not over | terminal `resigned`, loss |
 
-1. **Primary:** playfield, current objective, legal interaction target, and immediate danger or turn state.
-2. **Secondary:** score/progress, remaining moves or time, opponent/party status where applicable.
-3. **Tertiary:** settings, social controls, cosmetics, help, and history.
+Costs: belt 6; Smelter 40, Press 60, Sawmill 35, Workshop 55, Loom 35, Tailor 55 (`content.js RECIPES`), all multiplied by `cfg.costScale` (always 1 today). Refused commands return `{ok:false, reason}` and never change state (asserted by `tests/rules.test.mjs`). Note that build commands advance `tick` but do not run the simulation.
 
-The Three.js canvas fills the game region but is never the only UI. Menus, text, forms, chat, settings, and assistive descriptions use semantic HTML over or beside the canvas. Maintain a single shared layout model so DOM labels align with projected Three.js targets.
+### Tick resolution (`stepSimulation`, strict order)
 
-### Responsive layouts
+1. **Machines push out.** In row-major scan, a machine with an `outBuf` hands it to the cell it faces: sold at the sink, moved onto an empty belt/source, or into an empty machine `inBuf`. Each target accepts one item per tick (`claimed`).
+2. **Belts advance.** Every belt/source carrying a good tries to move it one cell in its facing; the list is rescanned to a fixpoint so a whole chain moves in one tick. Facing off the board spoils the good; facing meadow, rock, water or a full cell stalls it.
+3. **Machines work.** A machine with `inBuf` and an empty `outBuf` adds one to `prog`; at `processTime = max(1, ceil(time × [1, 0.66, 0.5][level-1]))` it emits the recipe output (`craft` event). Times: Smelter 4/3/2, Press 6/4/3, Sawmill 3/2/2, Workshop 5/4/3, Loom 3/2/2, Tailor 5/4/3.
+4. **Sources emit** when `(tick − 1) % every === 0` and the source cell is empty.
 
-- **Wide desktop (≥1024 CSS px):** centered playfield, objective/progression rail on the left, contextual actions and social/status rail on the right. Maximum line length is 70 characters.
-- **Compact desktop/tablet:** playfield remains central; secondary rails collapse into drawers. Pointer hover may preview but never be required.
-- **Portrait mobile:** top safe-area status bar, square or perspective-fit playfield, bottom thumb-zone action tray, and sheet-based secondary panels. Never place critical controls under browser chrome or display cutouts.
-- **Landscape mobile:** reserve a narrow status rail; preserve at least 44×44 CSS-pixel targets and 8-pixel separation.
-- React to resize, orientation, device-pixel-ratio, safe-area insets, virtual keyboard, and visibility changes without losing input or restarting the round.
+Goods chains and sale values (`GOODS`): ore 5 → ingot 14 → plate 32; timber 4 → plank 11 → frame 26; wool 4 → cloth 12 → garment 30.
 
-### Screens and overlays
+### Scoring (`deliver`, `finalizeScore`)
 
-- **Title/home:** Play is dominant; daily challenge, journey progress, and profile are one level below.
-- **Mode setup:** show rules, expected duration, player count, assists, and whether the result is ranked before commitment.
-- **Play HUD:** objective, progress, current actor/state, pause, and only context-relevant actions.
-- **Pause/settings:** resume first; audio, graphics, controls, accessibility, help, and leave are clearly separated.
-- **Results:** outcome headline, score breakdown, progress, achievements, comparison, replay/retry, and next recommended action.
-- **Help:** visual rule cards generated from current control mappings and representative legal states.
-- Daily challenge, local practice, pause, resume, results, and progression are first-class screens.
+- `goods` += sale value of every delivered good, counted immediately.
+- `contractBonus` += 150 the first time a contract line reaches its quota (`CONTRACT_BONUS`).
+- `goldLeft` = remaining gold, **only on a win**.
+- `speedBonus` = `(tickLimit − tick) × 2`, **only on a win** with a tick limit.
+- `total` = sum of the four. Integers throughout.
 
-### Input
+Worked example (First Ford, the e2e path): six belts cost 36 of 60 gold; five ore sell for 25; the contract completes at tick 32 of 120. goods 25 + contract 150 + goldLeft (60 − 36 + 25 = 49) + speed (120 − 32) × 2 = 176 → **total 400**.
 
-- Pointer/touch: raycast only against explicit interaction layers; use pointer capture for drags; cancel safely on lost capture.
-- Touch: distinguish tap, drag, and camera gesture by distance/time thresholds; never require multi-touch for core play.
-- Keyboard: directional navigation among legal targets, confirm, cancel, pause, undo/hint where valid, and camera reset.
-- Gamepad: focus navigation, primary/secondary actions, pause, and remappable axes/buttons.
-- Prevent accidental double commits with action identifiers, not arbitrary long debounce timers. Provide visible drag origin, target preview, and invalid-action explanation.
+### Terminal states (`checkTerminal`)
 
-### Accessibility
+- Win: every `cfg.contracts` line has `progress ≥ quota` → `contracts-complete`. Checked after every command, so a win is recognised the moment the last sale lands.
+- Loss: `tick ≥ tickLimit` → `time-up` (a limit of 0 means no limit, used by Practice Relaxed).
+- Loss: `resign` → `resigned`. The UI reaches this only through "Leave round"/"Title", which abandon the round without recording it.
 
-- Full keyboard operation and visible focus; DOM equivalents for canvas controls; headings and live regions for objective, turn, score, errors, and results.
-- Color is reinforced by shape, texture, icon, or label. Include contrast-safe and common color-vision palettes.
-- Reduced-motion mode removes camera swoops, shake, parallax, rapid particles, and large scaling while preserving event timing.
-- Independent sliders for music, effects, ambience, and voice; captions/text cues for meaningful audio; no audio-only gameplay.
-- Options for larger text, high contrast, left-handed controls, hold-versus-toggle, timing assistance, haptics off, and tutorial replay.
-- Announce Three.js board state through a concise navigable model rather than describing every decorative object.
+Ties in the local leaderboard helper (`store.js sortEntries`): won before lost, higher score, fewer invalid actions, lower duration, then session id. Journey stars (`app.js starsFor`): 1 for the win, +1 for `tick ≤ par.ticks` (par = 70% of the limit), +1 for ending with at least the starting gold.
 
-## 4. Visual and audio design
+### RNG and determinism
 
-### Visual contract
-
-The subject is the active playfield at near-tabletop to room scale, framed so state changes occupy most of the screen. The scene is a clean valley-sized factory diorama. Use an authored camera, original procedural geometry, restrained environmental storytelling, and a deterministic visual seed. The no-post-processing baseline must still communicate hierarchy, depth, selection, and state.
+`cfg.seed` is `hashString('assembly-vale:' + id)` for authored stages, an explicit seed for challenges (1101–1105) and Score Chase (777001), and `hashString('assembly-vale-daily:' + YYYY-MM-DD)` for dailies. Resolution itself uses no randomness; the seed selects the daily layout/theme and feeds `RNG.streams` for cosmetic variation. `hashState` hashes a stable-stringified copy without `events`; identical command lists give identical hashes (tested). `elapsedMs` is quantised to 100 ms from `cmd.atMs` so replays are stable.
 
-### Three.js scene design
-
-- Use physically based lighting and color management with one dominant key, soft environment fill, and contact grounding. Gameplay colors are tested after tone mapping.
-- Build reusable semantic meshes for active pieces, board cells, obstacles, targets, and environment modules. Geometry detail follows silhouette importance and camera distance.
-- Use instancing for repeated pieces and props, pooled effects, texture atlases where appropriate, and explicit disposal on scene changes.
-- Separate render layers for environment, gameplay, selection/ghosts, effects, and UI anchors. Cosmetic particles never intercept raycasts.
-- Selection uses a combination of lift/pose, outline or rim, and grounded marker—not bloom alone. Legal targets preview before commit; invalid targets explain why.
-- Event hierarchy: input acknowledgment < legal move < combo/goal < round completion. Reserve camera motion, strong emission, and dense particles for the highest tier.
-- Audio uses original short transients tied to logical events, layered material impacts, quiet ambience, and adaptive music stems. Randomized pitch/variant is seeded for replay consistency where recording matters.
-
-### Camera and motion
+### Undo and hints
 
-- Choose orthographic or low-distortion perspective according to depth requirements; expose framing constants rather than magic offsets.
-- Camera transitions use authored duration/easing or critically damped springs and remain interruptible. Never animate by cumulative per-frame lerp.
-- Decorative motion is paused or reduced when hidden. Gameplay animation derives from simulation state and interpolation alpha, not frame count.
-- Camera shake is low-amplitude, event-tiered, disabled by reduced motion, and never changes raycast truth.
+- Undo (`app.js undo`) is enabled when `cfg.mechanics.undo` is true: Practice and Lesson rounds. Up to 50 previous states are kept; undo pops one, including ticks.
+- `Rules.hint` returns, in priority order: (1) a stalled machine whose output faces something unusable → rotate, or an empty cell in front of it → place a belt; (2) a contract good with no matching machine → place that machine at `bestMachineCell` (prefers cells fed by a belt, faces away from the feeder); (3) any belt with empty meadow ahead → extend it one cell; otherwise no hint and the footer says to keep delivering.
 
-### Graphics-skill routing
+## 5. Modes and progression
 
-During implementation, begin with `threejs-skill-router` and load only the following retained skills because they materially affect this visual target:
+| Mode | Entry | Content | Undo | What is recorded |
+|---|---|---|---|---|
+| Journey | Title → Journey, or Play → Journey | 40 authored stages (`JOURNEY`), any stage playable at any time; mastery stages marked `*` | no | `journeyBest[id]` (score), `journeyStars[id]` on a win |
+| Lessons (Learn) | Title/Play → Lessons | 5 lessons (`LESSONS`), each a small stage with an explanatory paragraph in the info panel | yes | `tutorialDone[id]` = true on a win; `✓` on the list |
+| Daily Challenge | Title/Play → Daily Challenge | One config per UTC date (`dailyConfig`), tick limit 300, upgrades on | no | `dailiesDone[date]` best score, `stats.lastDaily` |
+| Challenges | Title/Play → Challenges | Shoestring (90 gold), Express (190 ticks), Bare Hands (no upgrades), Lean Works (16 buildings), Grand Vale (all six recipes) | no | `challengeBest[id]` |
+| Practice | Title/Play → Practice | Relaxed (basin, no limit), Standard (delta, 280), Veteran (delta, 280, plate + garment) | yes | global stats only |
+| Score Chase | Title/Play → Score Chase | Fixed seed 777001, basin, all recipes, 8 plate + 8 frame + 8 garment, 500 gold, 360 ticks | no | `scoreChaseBest` |
 
-- `threejs-camera-direction` for deliberate framing and input-safe camera transitions
-- `threejs-procedural-geometry` for authored, inspectable meshes instead of primitive-only placeholders
-- `threejs-procedural-materials` for coherent PBR surfaces, perceptual parameters, and readable state masks
-- `threejs-procedural-animation` for deterministic motion phases, springs, and interruption-safe transitions
-- `threejs-procedural-vfx` for bounded particles, trails, impact accents, and event hierarchy
-- `threejs-exposure-color-grading` for tone mapping, adaptation limits, and accessible color separation
-- `threejs-image-pipeline` for explicit depth/color ownership and pass ordering
-- `threejs-visual-validation` for fixed-view captures, seed sweeps, and performance evidence
-- `threejs-procedural-architecture` for modular spaces, silhouettes, façades, and semantic material slots
+Difficulty curve of the Journey (`content.js JOURNEY`): stages 1–4 belts only (ore contracts 5→12) on ford/bend/narrows/gorge; 5–8 add the Smelter; 9–12 the Sawmill and two-trade contracts; 13–16 upgrades and the Press (two-step chain); 17–20 the Loom on frost layouts; 21–25 Tailor and Workshop, ending in a four-recipe mastery on delta; 26–30 build limits (14–26 buildings); 31–35 lean purses; 36–40 "Express" stages with tight limits on tiers/switchback/crossroads, closing with Vale Mastery (six recipes, three contract lines, 600 gold, 340 ticks). Every fourth stage is a mastery stage. Themes rotate meadow → ember → frost → dusk → canyon by block.
 
-Follow the skill pack's acceptance gate: deterministic seeds, debug views for controlling fields, perceptually grouped parameters, mechanism-backed quality tiers, and a readable no-post baseline. Do not add an effect merely because a skill exists.
+Daily generation: `tier = dayNumber % 3` picks a recipe set (2, 3 or all 6 recipes) and a layout list that contains every needed source; the seeded rules stream picks layout and theme. The date comes from the client clock (`todayStr()`), and the config is immutable for that string (tested).
 
-### Performance budgets
+Content validation: `validateStage` checks that every contract good has an on-map raw source, every recipe in its chain is allowed, and the purse covers one chain plus four belts. `npm run test:rules` runs it over every Journey, Challenge, Practice and Score Chase definition.
 
-- Target 60 fps at the default tier and a stable 30 fps fallback on constrained mobile hardware.
-- Default active gameplay: ≤150 draw calls desktop, ≤90 mobile; ≤350k visible triangles desktop, ≤140k mobile; transient particles ≤20k desktop and ≤5k mobile.
-- Cap device pixel ratio by quality tier; dynamically lower render scale before dropping simulation rate. UI text remains native resolution.
-- Avoid runtime shader compilation during active play by prewarming required variants. Avoid per-frame allocations in simulation/render loops.
-- Quality tiers independently control shadows, environment detail, particles, post effects, antialiasing, and render scale; they never alter rules or visibility of hazards.
+Progress and unlocks: nothing is locked; stars, best scores and lesson ticks are the progression signals. Title footer shows rounds, wins and best score.
 
-## 5. Technical architecture
+## 6. Controls and interaction
 
-### Client modules
+Desktop keyboard (`onKeyDown`, play screen only unless noted):
 
-- `bootstrap`: host handshake, capability detection, asset manifest, lifecycle.
-- `rules`: pure deterministic state transitions, legality, scoring, seeded random stream.
-- `session`: local or hosted commands, snapshots, prediction policy, reconnect, replay.
-- `render`: Three.js scene graph, semantic entity views, camera, lighting, VFX, quality.
-- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
-- `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
-- `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform`: token-aware REST/WebSocket adapter, retries, rate-limit handling, telemetry consent.
+| Key | Action |
+|---|---|
+| Arrows | Move the selection cursor (clamped to the board) |
+| Enter | Apply the current tool at the selection (ignored while a button has focus) |
+| Space | Run one tick (ignored while a button has focus) |
+| B / M / R / X / U | Select Belt / Machine (last chosen recipe) / Rotate / Remove / Upgrade |
+| H | Hint: selects the suggested cell and explains it |
+| Z | Undo (Practice and Lessons) |
+| A | Toggle auto-run |
+| P or Esc | Pause; on Pause, P/Esc resumes; on Help, Esc returns; on other screens Esc returns to the title |
+| Tab | Standard focus order through every button and the board canvas |
 
-No module may mutate rules state except through a validated command. Rendering consumes immutable snapshots plus interpolation data. UI state and simulation state are separate so closing a drawer cannot affect a match.
+Mouse and touch: tap a tool button, then tap a board cell — the tap both selects the cell and applies the tool (`onBoardClick`). Hover shows a pointer cursor over the board. There are no drags, no multi-touch, no long-press; `touch-action: manipulation` removes the double-tap zoom delay. Pointer position is mapped through the canvas bounding box, so the scaled-down mobile canvas stays accurate.
 
-### Determinism, replay, and security
+Input locking: there is none to lock — every command resolves synchronously. Auto-run advances one tick every `max(120, 420 / simSpeed)` ms and stops itself on a terminal state, on pause, or when the tab is hidden (`visibilitychange` → paused).
 
-- Fixed simulation step where physics exists; quantize authoritative inputs and define stable collision/order rules.
-- Use separate seeded random streams for rules, content decoration, and audiovisual variants. Cosmetic randomness never changes rules.
-- Replay envelope: schema version, build/content version, seed, initial hash, timestamp offset, ordered commands, periodic state hashes, terminal result.
-- Validate all network input for identity, session membership, turn/tick, bounds, rate, payload size, and legal action. Reject duplicates idempotently by command ID.
-- Treat client clocks, scores, inventories, roles, physics outcomes, and completion claims as untrusted in competitive contexts.
+Feedback for every input: tool select → clink + "Tool: belt"; build → thunk + "Built a belt."; rotate → ratchet + "Rotated to face S."; remove → scrape; upgrade → servo; refused → buzz + reason; hint → chime; undo → zip; tick events → craft/deliver/contract/spoil sounds with sale text in the status line; auto-run → motor sound and the factory hum while running.
 
-### Loading and resilience
+## 7. Screens and UI flow
 
-- Show useful progress by asset group; load core rules/UI first and scenic assets lazily. Provide procedural low-detail substitutes if optional assets fail.
-- Cache immutable hashed assets and the last safe local snapshot. Updates activate between rounds, never during one.
-- Recover WebGL context by rebuilding GPU resources from retained CPU descriptors. If 3D is unavailable, present a clear compatibility message and preserve account/session state.
-- Background tabs reduce rendering to zero or a low heartbeat while preserving required network lifecycle.
+State machine (`screen` in `app.js`, rendered by `render()`):
 
-## 6. StarHermit integration
+```
+title ─┬─ mode-select ─┬─ journey-select ──┐
+       ├─ journey-select│  lesson-select    │
+       ├─ lesson-select ├─ challenge-select ├─ play ⇄ paused
+       ├─ challenge-sel.├─ practice-select  │   │      └─ help → play
+       ├─ practice-sel. ├─ daily (direct)   │   ├─ help → play
+       ├─ daily (direct)└─ score-chase      │   └─ terminal → results ─┬─ play (again / next stage)
+       └─ score-chase (direct) ─────────────┘                          ├─ mode-select
+                                                                       └─ title
+```
 
-### Packaging and launch
-- Ship a browser distribution with `starhermit.txt` at its root, `name=Assembly Vale`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the game scope from the short-lived launch token rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Refresh account tokens through the host shell; never persist access or launch tokens in local storage.
-- Synchronize countdowns and daily boundaries with `GET /api/v1/time` using round-trip-adjusted offset. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+Every screen is rebuilt from scratch on transition (`clearNode(root)`); the play screen refreshes in place (`refreshPlay`) so keyboard focus survives and the canvas is not recreated. Leaving a round from Play or Pause discards it without a result.
 
-### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name and avatar only where identity is useful, honor profile privacy, and send throttled presence heartbeats while actively playing.
-- Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
+Layouts:
 
-### Discovery, activity, and social layer
-- Start and end launch activity so playtime is accurate. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
-- Provide a compact friends panel for score comparison and invitations where appropriate. Respect presence visibility and do not expose a hidden or private profile through game UI.
-- Do not create gameplay chat or voice surfaces for the initial release; they are not relevant to the core solo loop. Friends-only leaderboard filtering and shareable challenge seeds supply the social layer without unnecessary communication permissions.
+- **Desktop (>720 px)**: header row (stage name, Gold pill, Tick pill, Pause, Help); three-column body — info panel (contracts, live score components, selected cell) | board canvas + legend | tool palette and action panel; footer with hint, live status line and Title button. Root is capped at 1180 px and centred.
+- **Portrait and landscape mobile (≤720 px)**: columns stack; the board moves to the top (`order: -1`), then info, then tools/actions, then the footer. Header pills wrap onto a second line. The canvas scales to width with `height: auto`.
+- Safe areas: `#root` padding is `max(12px, env(safe-area-inset-*))` on all four sides and the viewport uses `viewport-fit=cover`.
+- Must never be cut off: the board, the Gold/Tick pills, the active tool button, "Run one tick", the status line. All are in normal flow, nothing is fixed or absolutely positioned, so the page scrolls rather than clips.
 
-### Achievements and leaderboards
-- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent.
-- Provide global and friends-filtered boards for the primary metric plus a fair daily/weekly board. Include ruleset, content version, seed, assists, and duration with every submission; reject impossible or stale-version scores.
-- For globally competitive boards, validate score claims through a lightweight authoritative script using replayable input logs and deterministic seeds. If validation is unavailable, label the board casual and apply plausibility/rate checks.
+Board rendering (`drawBoard`): cell size = clamp(28, min(64, 640/cols, 512/rows)) device pixels; terrain checker, then belts/sources with their goods, then machines (input good top-left, output good bottom-right, `L2`/`L3` badge, gold facing tick), then the Exchange, then the white selection frame.
 
-### Sessions and transport
-- The initial game is solo. Use an authoritative JavaScript Game Script only for seeded daily sessions, replay validation, and durable achievement delivery; ordinary practice can run locally and offline after initial load.
-- A daily session records content version, seed, settings affecting difficulty, an ordered input log, score components, and final checksum. Reconnect from the durable session snapshot rather than trusting cached client state.
-- Realtime rooms, peer relay, matchmaking, backfill, and voice are intentionally not used because they add no value to this ruleset.
+## 8. Art direction
 
-### Publishing and operations
-- Keep the authoritative script inside the distribution and declare it with `server=server.js`. Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
-- Define control defaults, achievement metadata, and versioned settings before release. Publish immutable build assets, verify the launch path, maintain migration tests for saves, and expose no secret configuration to the client.
-- Capture anonymous funnel events only for start, tutorial step, round end, retry, settings change, and error category. Avoid raw text, precise personal data, and cross-title tracking.
+The hero of every screen is the board: a clean tabletop diorama of a green valley with a handful of readable pieces. Chrome is dark forest green so the meadow glows; gold is reserved for primary actions, the selected tool, arrows on belts and the status line.
 
-## 7. Content, economy, and retention
+Palette (CSS tokens in `css/style.css`, canvas colours in `app.js`/`content.js`):
 
-- Launch scope: tutorial sequence, at least 40 authored stages or equivalent procedural depth, daily challenge, practice, five visual themes, and a mastery track.
-- Cosmetic rewards may alter materials, trails, board surrounds, ambience, or profile flourishes, but never hitboxes, timing windows, information, or power.
-- Reward cadence: early feedback every session, meaningful unlock every 3–5 sessions, and long-term goals visible without manipulative countdowns.
-- No real-money wagering, paid random rewards, forced advertising, energy pressure, punitive streak loss, or purchases that affect competitive outcomes.
-- Notifications, if ever added by the host, are opt-in, frequency-capped, quiet-hour aware, and never use false urgency.
+| Token / use | Hex |
+|---|---|
+| `--bg` page, `--bg-panel`, `--bg-panel-2` | `#101a14`, `#1b2a21`, `#24382b` |
+| `--ink`, `--ink-dim` | `#eef6ee`, `#b7c9ba` |
+| `--accent` (primary buttons, focus ring, belt arrows, status), `--accent-ink` | `#ffd166`, `#20180a` |
+| `--line`, `--good`, `--bad` | `#3c5a45`, `#7fd48f`, `#ff9b8a` |
+| Meadow tiles (theme `meadow`) | `#7fae66` / `#74a35c`; rock `#8b8f96`; water `#5f9ec7`; belt `#4c4438` |
+| Source block, machine body, Exchange | `#3b3f45`, `#5b3f7a`, `#b5342a` |
+| Machine level rings L1/L2/L3 | `#2b1d3a`, `#f1c40f`, `#e74c3c` |
+| Goods | ore `#8d97a5`, ingot `#e0883b`, plate `#f2c14e`, timber `#9a6a3f`, plank `#c98d4b`, frame `#e0b06a`, wool `#e8e4da`, cloth `#7fa8d9`, garment `#b07fd9` |
 
-## 8. Analytics and privacy
+Five stage themes (`THEMES`) recolour tiles, rock, water, belts and the arrow accent: Meadow, Ember (`#8a5340` tiles, `#ff9d5c` accent), Frost (`#bcccda`, `#7fd4ff`), Dusk (`#665580`, `#e8a0e8`), Canyon (`#c08153`, `#ffe08a`).
 
-Measure tutorial completion, first meaningful action time, session duration bands, level attempts, quit state, input modality, performance tier, reconnect success, and accessibility feature usage only in aggregate. Use random session identifiers, short retention, and explicit consent where required. Never collect message content, drawings, voice, private board notes, or exact pointer trails as analytics.
+Shape language: everything is an inset square on a square tile — sources at 84%, belts at 76%, machines at 84%, the Exchange at 88% — with round-capped arrows and a single bold glyph (good initial, machine initial, `$`). Goods are small filled circles with a dark outline so they read on any theme.
 
-Success targets for the first public test: median first-play time under 20 seconds, tutorial completion above 80%, crash-free sessions above 99.5%, p95 input acknowledgment below 100 ms locally, and at least 95% of supported mobile sessions holding their selected frame-rate tier.
+Typography: `system-ui` stack, 16 px body, `h1` clamp(1.8rem, 5vw, 2.6rem), tabular numerals on pills and score rows, 62–70 ch measure on paragraphs and lists.
 
-## 9. Testing and acceptance criteria
+Motion: none in the board — state changes are instantaneous redraws, which keeps the tick as the unit of time. The only transitions are button press (1 px translate, removed under `prefers-reduced-motion`) and gain ramps in audio.
 
-### Rules and content
+Visual assets the design calls for (all in `assets/`, generated with FLUX.2 klein, compressed to WebP, wired as decorative `<img alt="">` that remove themselves if the file fails to load):
 
-- Unit-test every legal action, invalid-action reason, scoring component, terminal state, and serialization migration.
-- Property-test deterministic replay: the same version, seed, and commands produce identical state hashes.
-- Fuzz malformed commands and generated content; prove no hangs, NaN physics, impossible mandatory states, or unbounded loops.
-- Golden-test representative easy, medium, hard, interrupted, resumed, and terminal sessions.
+- `keyart.webp` — title-screen hero and source of the cover: aerial diorama of the mine, a belt line, a purple smelter and the red-roofed Exchange.
+- `exchange-ledger.webp` — results-screen illustration: the Exchange counter with stacked goods and a stamped ledger; desaturated on a loss (`.illus.lost`).
+- `help-line.webp` — Help-screen diagram-style shot of mine → belts → smelter → Exchange.
+- `coverart.png` — 1200×675 store cover cropped from the key art with the title set in DejaVu Sans Bold.
 
-### Interface and accessibility
+## 9. Audio direction
 
-- Test pointer, coarse touch, keyboard-only, gamepad, screen reader, zoom to 200%, reduced motion, high contrast, safe areas, and both mobile orientations.
-- Verify focus restoration after every modal, meaningful live announcements, no keyboard traps, and no hover-only instructions.
-- Confirm all critical labels fit translated strings at 30% expansion and support right-to-left layout where localized.
+Mix philosophy: the round should sound like a small workshop in a quiet valley. Short dry transients on the effects bus for every logical event, a very quiet brown-noise "valley air" bed on the ambience bus, a 55 Hz low-passed sawtooth hum on the same bus only while auto-run is on, and a slow four-chord generative pad (A–G–F–E minor-ish walk, 5.2 s cycle, ≤0.05 gain) on the music bus. Bus gains: music 0.55, effects 0.9, ambience 0.5, voice 0.8 (`DEFAULT_SETTINGS`); "Sound: on/off" on the Pause screen mutes the master. Audio starts only from the user gesture that starts a round and is suspended when leaving to the title.
 
-### Graphics and performance
+Clips: `js/audio.js` fetches `sfx/manifest.json` on start, binds each `event` to its `name`, and lazily decodes `sfx/<name>.opus` on first use. Until a clip is ready — or if it fails — the synthesized version plays, so the game is never silent and needs no preloading.
 
-- Produce fixed-camera captures for every quality tier, deterministic seed sweeps, no-post baselines, debug-view mosaics, and 10-minute temporal stability runs.
-- Profile CPU, GPU, memory, shader compilation, draw calls, triangles, texture memory, and garbage collection on representative desktop and mobile classes.
-- Verify effects cannot obscure legal targets, alter picking, leak resources, or continue expensive updates while hidden.
+SFX event table (source of `sfx/manifest.txt`):
 
-### Platform and network
+| Event id | File | Sound | Usage |
+|---|---|---|---|
+| `ui` | `ui-click.opus` | Soft wooden button click | Reserved generic acknowledgment (menus are silent today) |
+| `tool` | `tool-clink.opus` | Wrench clink on a vice | Tool selected (button or B/M/R/X/U) |
+| `place` | `place-thunk.opus` | Crate set down on concrete | Belt or machine placed |
+| `remove` | `remove-scrape.opus` | Plank pulled free, soft thud | Building removed |
+| `rotate` | `rotate-ratchet.opus` | Two ratchet clicks | Building rotated |
+| `upgrade` | `upgrade-servo.opus` | Servo whir ending in a latch | Machine upgraded |
+| `invalid` | `invalid-buzz.opus` | Dull rubbery buzz | Any refused command |
+| `craft` | `craft-hammer.opus` | Hammer tap on metal | Machine finishes a recipe |
+| `deliver` | `deliver-chime.opus` | Cash-register chime, coins | Good sold at the Exchange |
+| `contract` | `contract-stamp.opus` | Rubber stamp then bell | Contract line completed |
+| `spoil` | `spoil-splat.opus` | Wet splat | Good lost off the edge or in a removal |
+| `win` | `win-fanfare.opus` | Short brass fanfare with bells | All contracts complete |
+| `lose` | `lose-fall.opus` | Descending trombone slide | Tick limit or resignation |
+| `undo` | `undo-zip.opus` | Tape measure rewinding | Undo |
+| `hint` | `hint-chime.opus` | Glass-rod ping with shimmer | Hint |
+| `star` | `star-sparkle.opus` | Glockenspiel sparkle | Reserved for star awards (not triggered yet) |
+| `spawn` | `mine-spawn.opus` | Tiny pebble tock from a mine chute | Source emits a raw good |
+| `auto` | `conveyor-motor.opus` | Conveyor motor spinning up | Auto-run toggled (synth fallback until the clip is decoded) |
 
-- Test expired/rotated tokens, privacy settings, rate limits, offline start, reconnect at each game state, duplicate commands, out-of-order events, server restart, and version mismatch.
-- Verify achievement idempotency, leaderboard validation, friends-only filtering, cloud-save conflict handling, activity start/end pairing, and server-time countdown accuracy.
-- For hosted sessions, test disconnect/rejoin, abandonment, timeout, invitation expiry, result reconciliation, replay access, moderation controls, and authoritative cheat attempts.
+Captions: when `settings.captions` is true, each event also writes a short caption ("build", "sale", "contract complete") to the status line via `setCaptions`.
 
-## 10. Definition of done and non-goals
+## 10. Localization
 
-This specification is ready for implementation when rules examples, content schema, wireframes for all responsive breakpoints, visual target frames, accessibility annotations, authoritative message schema, achievement definitions, leaderboard definitions, and performance test devices are approved.
+Shipped language: English only. All player-facing strings are literals in `js/app.js` (screen text, `REASON_TEXT`, status messages, hint sentences) and `js/content.js` (stage, lesson, challenge and good names). There is no locale table, no language selection, and `<html lang="en">` is fixed. Spelling is mixed ("Fulfilling" on the title, "Fulfil" on Help). The nine target locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) are listed under "Design intent not yet implemented". Layout allowance for translation exists already: buttons are `flex: 1 1 220px` and wrap, tool labels are full-width, and no text is fixed-width, so 30% expansion does not clip.
 
-This document does **not** authorize implementation, asset production, monetization work, native wrappers, real-money systems, or copying any existing product. The initial build should favor one excellent core loop and a coherent original visual identity over feature breadth.
+## 11. Accessibility
+
+- Keyboard-only path: every screen is reachable by Tab + Enter on real `<button>`s; the board canvas is focusable (`tabindex=0`, `role=application`, descriptive `aria-label`) and fully playable with arrows, Enter, Space and the letter keys. There are no keyboard traps; Esc always goes back.
+- Focus: `:focus-visible` draws a 3 px gold outline on buttons and the canvas; `refreshPlay` restores focus to the same tool button after the palette is rebuilt.
+- Screen reader: the status line is `role=status aria-live=polite` and announces the selected cell ("(2, 1) belt facing E carrying Ore"), every result of an action, every sale and every refusal. Tool buttons carry `aria-pressed`. Contracts and score are plain text rows.
+- Contrast: `#eef6ee` on `#101a14` (≈15:1), `#20180a` on `#ffd166` (≈11:1), dim text `#b7c9ba` on panels (≈8:1).
+- Target size: all buttons are ≥44 px tall with 8–10 px gaps; board cells are ≥28 device px and scale with the canvas.
+- Reduced motion: honoured by the `prefers-reduced-motion` rule; the game has no other animation.
+- Colour is never the only cue: every piece has a glyph, machines show `L2/L3` text, the legend labels each colour, and the info panel describes the selection in words.
+- Audio is optional: nothing in the rules depends on hearing an event; captions can mirror events to the status line.
+
+## 12. StarHermit integration
+
+Packaging follows the wiki conventions (https://wiki.starhermit.com/): `starhermit.txt` at the distribution root with `name`, `launch=index.html`, `owner`, `server=server.js`, `cover=coverart.png`; everything beside it is uploaded.
+
+Used today:
+
+- **Server script**: `server.js` serves the static distribution, refuses paths outside the root, answers `GET /api/v1/time` with `{time}` (ms). It has no game logic and holds no state.
+- **Local identity-free progress**: guest play with progress in `localStorage`; no launch token is read and no tokens are stored.
+
+Not used: profile/identity, presence heartbeats, achievements, leaderboards (the `store.js` board helpers and tie-break order exist but `app.js` never calls them), sessions/matchmaking, replays upload, chat, voice, relay, cloud saves. Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
+
+## 13. Technical architecture
+
+- **Module boundaries**: `rng` → `rules`, `content` (both UMD, Node-testable, no DOM, no `Date`); `store` and `audio` are browser globals; `app.js` is the only module that touches the DOM and the only caller of `Rules.applyCommand`. `content.js` is data plus validators; it never resolves rules.
+- **Determinism**: rules never read time or randomness; `applyCommand` returns a fresh clone (`clone` = JSON round-trip) and the old state is kept for undo. `validateCommandShape` bounds command size (512 bytes) and checks types for any future network/replay boundary. `serialize`/`deserialize` are version-checked (`STATE_VERSION 1`).
+- **Persistence**: one document `{v, settings, progress}` wrapped as `{sum, payload}` with an FNV-1a checksum; a bad checksum or a newer version yields a clean slate; an in-memory fallback covers private mode. `migrate` fills new settings and stats keys.
+- **Performance**: the board is redrawn whole on each refresh (≤80 cells, one `fillRect` set per cell); no animation loop runs, so idle CPU is zero. Auto-run is a `setInterval` at 120–420 ms. Audio nodes are created per event and garbage-collected; the ambience buffer is 2 s looped.
+- **Resilience**: missing clips fall back to synthesis; missing images remove themselves; `localStorage` failures fall back to memory; hiding the tab pauses the round.
+- **How the e2e drives the real UI**: `tests/e2e.mjs` starts its own static server on an ephemeral port, launches system Chrome through `playwright-core`, and only uses `getByRole('button', {name})` and canvas clicks positioned by grid fraction — the same surface a player uses. It then spawns `server.js` on port 8117 (override `E2E_SERVER_PORT`) to check the shipped server.
+
+## 14. Testing and acceptance criteria
+
+`npm test` = `test:rules` then `test:e2e`.
+
+`tests/rules.test.mjs` (10 checks): every stage definition validates; every config builds with an in-bounds sink and at least one source; challenge/practice configs carry their ids and unknown difficulties fall back to Standard; the daily is stable per date; a six-belt line wins First Ford (gold 24, tick 6, `contracts-complete`, 5 ore); seven illegal commands are refused with the right reason and leave the hash unchanged; a Smelter costs its price, upgrades from 4 to 3 ticks, and refunds half on removal; the tick limit ends the round as `time-up` at exactly the limit; identical command sequences hash identically; serialization round-trips.
+
+`tests/e2e.mjs`, at 1280×800 and again at 390×844 with touch: title heading and all seven mode buttons visible; mode select and back; Journey lists 40 stages; First Ford header shows name, `Gold: 60`, `Tick: 0 / 120` and the contract row; six canvas clicks build the line and cost 36 gold and 6 ticks; a click on rock reports "rock" and costs no tick; clicking "Run one tick" until the results screen shows "Contracts complete" with a positive score; the save document records the win and `journeyBest.j01`; Space ticks, ArrowRight+Enter builds, P pauses, Resume works; Practice Relaxed starts with `Gold: 300` and Undo rolls the tick back; five lessons listed and "Lay the line" starts with its text; five challenges listed and Shoestring starts with `Gold: 90`, `Tick: 0 / 210`; the daily header carries a date; Score Chase auto-run advances and stops. Any console error or page error fails the pass. Finally `server.js` must serve `index.html` at `/`, refuse `/%2e%2e/` escapes, answer 400 to malformed encoding, and return a numeric time.
+
+QA bar (agents/qa.md) as checkable statements:
+
+- A new player sees rules on the title, a lesson track, a preselected tool, a concrete hint and an explained refusal within the first round.
+- Every implemented feature is reachable by clicking visible buttons; nothing requires a console or URL parameter.
+- Zero console errors or warnings on either viewport (enforced by the e2e).
+- No text or control is clipped at 1280×800, 390×844 portrait, or landscape phones: all content is in normal flow and the page scrolls.
+
+## 15. Asset inventory
+
+| Path | Purpose | Source | Status |
+|---|---|---|---|
+| `assets/keyart.webp` | Title hero (1536×864 → WebP) | FLUX.2 klein, seed 61001, 28 steps | generated in this pass, wired |
+| `assets/exchange-ledger.webp` | Results illustration (1024×576) | FLUX.2 klein, seed 61002 | generated in this pass, wired |
+| `assets/help-line.webp` | Help diagram illustration (1024×576) | FLUX.2 klein, seed 61003 | generated in this pass, wired |
+| `coverart.png` | 1200×675 store cover | key art crop + ffmpeg drawtext title | generated in this pass (replaces the placeholder abstract cover) |
+| `icon.png`, `favicon.svg` | Launcher icon, tab icon | authored earlier | shipped |
+| `sfx/*.opus` (16 clips) | Event one-shots, see §9 | MOSS-SoundEffect v2.0 | shipped |
+| `sfx/mine-spawn.opus` | `spawn` event | MOSS-SoundEffect | generated in this pass |
+| `sfx/conveyor-motor.opus` | `auto` event | MOSS-SoundEffect | generated in this pass |
+| `vendor/three.module.min.js` | — | three.js | shipped, unused (not referenced by `index.html`) |
+| 3D models, character animation | — | — | not called for: 2D canvas presentation, no characters |
+
+## 16. Known limitations
+
+- No localization: English strings inline in `app.js`/`content.js`; mixed US/UK spelling.
+- Lesson `steps` in `content.js` are authored but `app.js` shows only the lesson paragraph; steps are not tracked or ticked off, and a lesson counts as done when its contracts are met.
+- Journey stars are computed and saved (`journeyStars`) but never displayed; the Journey list shows best score only.
+- Most `DEFAULT_SETTINGS` (captions, simSpeed, largeText, highContrast, colorPalette, leftHanded, confirmBuilds, boardMirror, graphicsTier) have no UI; only Sound on/off is exposed, on the Pause screen.
+- The board has no DOM mirror; a screen-reader user navigates by the status line and the "Selected:" row.
+- `server.js` serves every file under the game root, including `tests/` and `tools/`, and does not implement the `/ws` upgrade its header comment mentions.
+- The daily date comes from the client clock, so players near midnight UTC on a skewed clock can see a different day than the platform.
+- Rotating a belt that a hint suggested does not re-run the hint until the next refresh; the hint is greedy and can suggest extending a belt into a dead end.
+- Removing a building loses its carried goods with no confirmation (documented on Help).
+
+## Design intent not yet implemented
+
+- Localization table with en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, chosen from the platform profile or `navigator.language`, with a language switch on the title.
+- StarHermit leaderboards for Daily and Score Chase (entries carry ruleset version, seed, score components, tick count) and a small achievement set (first win, first upgrade, all lessons, a mastery stage, 100 goods sold), using `store.js sortEntries` ordering for ties.
+- Daily date from `/api/v1/time` with round-trip offset.
+- Lesson step tracking driven by rules events, with the current step highlighted in the info panel.
+- Star display on the Journey list and a `star` sound on the results screen.
+- Settings screen exposing the persisted options (captions, sim speed, large text, high contrast, left-handed layout).

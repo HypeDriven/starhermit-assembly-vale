@@ -99,7 +99,9 @@
     'lose':      function () { blip(300, 0.5, 'sine', 0.16, 'effects', ctx.currentTime, 180); blip(200, 0.6, 'sine', 0.1, 'effects', ctx.currentTime + 0.15, 120); caption('round lost'); },
     'undo':      function () { blip(500, 0.08, 'triangle', 0.1, 'effects', ctx.currentTime, 380); caption('undo'); },
     'hint':      function () { blip(990, 0.12, 'sine', 0.1); blip(1320, 0.14, 'sine', 0.07, 'effects', ctx.currentTime + 0.07); caption('hint'); },
-    'star':      function () { blip(1568, 0.18, 'sine', 0.1); }
+    'star':      function () { blip(1568, 0.18, 'sine', 0.1); },
+    'spawn':     function () { noiseBurst(0.04, 0.12, 900); blip(variant(330), 0.05, 'triangle', 0.04); },
+    'auto':      function () { blip(110, 0.35, 'sawtooth', 0.05, 'effects', ctx.currentTime, 165); caption('auto-run'); }
   };
 
   // ---------- authored one-shot samples (sfx/*.opus); synthesis is the fallback ----------
