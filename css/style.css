@@ -140,3 +140,19 @@ canvas#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2
 @media (prefers-reduced-motion: reduce) {
   button:active { transform: none; }
 }
+
+/* ---------- short landscape (phone rotated): keep board and tools co-visible ---------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  #root { padding-top: 6px; padding-bottom: 6px; }
+  .head { padding-bottom: 6px; margin-bottom: 8px; gap: 8px; }
+  .head h2 { font-size: 1.1rem; }
+  .head .btn { min-height: 38px; padding: 6px 12px; }
+  .body { flex-wrap: nowrap; gap: 10px; }
+  .col { flex: 0 0 200px; min-width: 0; max-height: calc(100vh - 80px); overflow-y: auto; }
+  .canvas-wrap { flex: 1 1 auto; min-width: 0; }
+  canvas#board { width: auto; max-height: calc(100vh - 110px); margin: 0 auto; }
+  .legend { display: none; }
+  .panel { padding: 8px; margin-bottom: 8px; }
+  .tool, .actions-col .act { min-height: 40px; padding: 6px 10px; font-size: 0.92rem; margin-bottom: 6px; }
+  .foot { margin-top: 8px; padding-top: 6px; }
+}
