@@ -19,11 +19,12 @@ File map:
 
 | Path | Role |
 |---|---|
-| `index.html` | Entry point; loads the five classic scripts then `js/app.js` as a module. Cache-busted with `?v=gdd-1`. |
+| `index.html` | Entry point; loads the six classic scripts then `js/app.js` as a module. Cache-busted with `?v=gdd-1`. |
 | `js/rng.js` | mulberry32 PRNG, FNV-1a `hashString`, three derived streams (rules, decor, av). UMD (`window.AVRNG`). |
 | `js/rules.js` | Pure deterministic rules engine: `createGame`, `applyCommand`, `simulate`, legality checks, `hint`, hashing, serialization. UMD (`window.AVRules`). |
 | `js/content.js` | Versioned data: goods, recipes, five themes, twelve ASCII layouts, 40 Journey stages, 5 lessons, 5 challenges, 3 practice presets, Score Chase, daily generator, `validateStage`. UMD (`window.AVContent`). |
-| `js/store.js` | Save document (settings + progress) with FNV-1a checksum, migration, memory fallback; local leaderboard helpers. |
+| `js/store.js` | Save document (settings + progress) with FNV-1a checksum, migration, memory fallback; local leaderboard helpers; `loadRaw` parses a wrapped save string (local cache + cloud mirror). |
+| `js/platform.js` | StarHermit host adapter (UMD, `window.AVPlatform`): fragment launch-token read/strip, `sub`+`game_scope` decode, Bearer auth, 45-min launch-token refresh, profile nickname, cloud-save mirror (zip+base64) with sync status. No-op without a token. |
 | `js/audio.js` | Buses (music, effects, ambience, voice), 18 synthesized events, clip loader for `sfx/*.opus`, valley ambience, factory hum, generative pad. |
 | `js/app.js` | Screens, board drawing, input, hints, undo, auto-run, progress recording. All UI strings live here. |
 | `css/style.css` | Palette tokens, buttons, play layout, mobile breakpoint, reduced-motion rule. |
@@ -281,9 +282,9 @@ Packaging follows the wiki conventions (https://wiki.starhermit.com/): `starherm
 Used today:
 
 - **Server script**: `server.js` serves the static distribution, refuses paths outside the root, answers `GET /api/v1/time` with `{time}` (ms). It has no game logic and holds no state.
-- **Local identity-free progress**: guest play with progress in `localStorage`; no launch token is read and no tokens are stored.
+- **Host adapter** `js/platform.js`: reads `#game_token=<jwt>` from the URL fragment (query fallbacks for local dev, stripped after read), decodes `sub` + `game_scope` (slug never hard-coded), sends `Authorization: Bearer`, re-mints the token every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry on failure), fetches the display name from `GET /api/v1/users/{sub}/profile` (nickname, fallback `Player ` + id8; never `/api/v1/me`, never usernames), and mirrors the save document to the cloud slot `GET/PUT /api/v1/me/cloud-saves/{slug}` (stored-zip + base64, one slot). Remote save wins on load; localStorage stays the offline cache; saves debounce 2 s and flush on `pagehide`/hidden. Without a token every call is a no-op and play is unchanged. The title footer shows the account line (nickname + sync status).
 
-Not used: profile/identity, presence heartbeats, achievements, leaderboards (the `store.js` board helpers and tie-break order exist but `app.js` never calls them), sessions/matchmaking, replays upload, chat, voice, relay, cloud saves. Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
+Not used: presence heartbeats, achievements, leaderboards (the `store.js` board helpers and tie-break order exist but `app.js` never calls them), sessions/matchmaking, replays upload, chat, voice, relay. Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
 
 ## 13. Technical architecture
 

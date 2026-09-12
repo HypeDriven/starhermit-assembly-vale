@@ -9,6 +9,7 @@ var Rules = window.AVRules;
 var Content = window.AVContent;
 var Store = window.AVStore;
 var AudioMod = window.AVAudio;
+var Platform = window.AVPlatform;
 
 // ---------- settings + progress (persisted) ----------
 function loadSettings() { return Object.assign({}, Store.DEFAULT_SETTINGS, Store.load().settings); }
@@ -70,6 +71,16 @@ function sfx(name) { try { AudioMod.play(name); } catch (e) { /* audio is option
 //  SCREENS
 // =====================================================================
 
+// Account + cloud-sync status line for the title screen footer.
+function accountText() {
+  if (!Platform.hosted) return 'Offline — progress is stored on this device.';
+  var name = Platform.profile ? Platform.profile.displayName : '…';
+  var syncTxt = Platform.sync === 'synced' ? 'progress synced'
+    : Platform.sync === 'saving' ? 'saving…'
+    : 'cloud sync unavailable';
+  return 'Playing as ' + name + ' · ' + syncTxt;
+}
+
 function renderTitle(root) {
   clearNode(root);
   root.appendChild(h('h1', null, ['Assembly Vale']));
@@ -94,6 +105,7 @@ function renderTitle(root) {
   var prog = loadProgress();
   var foot = h('footer',{class:'foot'},[
     h('small',null,['Rounds played: ' + prog.stats.rounds + ' · Wins: ' + prog.stats.wins + ' · Best score: ' + prog.stats.bestScore]),
+    h('small',{id:'account-line'},[accountText()]),
     h('small',null,['Original. No real-money wagering, no ads, no energy pressure.'])
   ]);
   root.appendChild(foot);
@@ -959,7 +971,7 @@ function onKeyDown(ev) {
   }
 }
 
-function init() {
+async function init() {
   el.root = document.getElementById('root');
   document.addEventListener('keydown', onKeyDown);
   // Backgrounding pauses the solo simulation (spec §state machine).
@@ -968,6 +980,23 @@ function init() {
   });
   // WebAudio is unlocked by startRound's user gesture, never during page load.
   render();
+
+  // StarHermit host adapter: identity, token refresh and the cloud save
+  // mirror. When a remote save exists it wins over the local cache (the app
+  // re-reads the doc from storage, so persisting the remote doc is enough);
+  // localStorage remains the offline fallback either way.
+  try {
+    var remoteRaw = await Platform.init({
+      onProfile: function () { if (screen === 'title') render(); },
+      onSync: function () { if (screen === 'title') render(); }
+    });
+    var remoteDoc = remoteRaw ? Store.loadRaw(remoteRaw) : null;
+    if (remoteDoc) {
+      Store.save(remoteDoc); // local cache mirrors the remote doc
+      settings = loadSettings();
+      render();
+    }
+  } catch (e) { /* offline or no token: the local save is already loaded */ }
 }
 
 window.addEventListener('DOMContentLoaded', function(){ init(); });
