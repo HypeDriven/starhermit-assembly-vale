@@ -10,6 +10,9 @@ var Content = window.AVContent;
 var Store = window.AVStore;
 var AudioMod = window.AVAudio;
 var Platform = window.AVPlatform;
+var Gfx = window.AVGfx;
+var Board = window.AVBoard;
+var I18n = window.AVI18n;
 
 // ---------- settings + progress (persisted) ----------
 function loadSettings() { return Object.assign({}, Store.DEFAULT_SETTINGS, Store.load().settings); }
@@ -29,6 +32,92 @@ var journeyIndex = -1;      // index into Content.JOURNEY when kind === 'journey
 var autoTimer = null;       // auto-run interval handle
 var history = [];           // previous states, for undo where the mode allows it
 var statusText = '';        // live-region message
+
+// ---------- graphics (quality model in gfx.js, drawing in board.js) ----------
+var LOCALE = I18n.pick((navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language]);
+var tr = I18n.make(LOCALE);
+var gpuName = detectGpu();
+var isMobile = detectMobile();
+var detectedPreset = Gfx.detectPreset(gpuName, { mobile: isMobile });
+var gfx = null;                    // resolved settings (Gfx.resolve)
+var gfxShared = { adaptive: 1 };   // adaptive resolution scale, kept across screens
+var gfxFailed = false;             // an overlay pass threw; the board renders without it
+var boardView = null;              // renderer for the play board or the settings preview
+var previewState = null;           // sample round shown in the Graphics panel
+var settingsReturn = 'title';      // screen to go back to from Settings
+var fpsEl = null;
+
+// GPU name for Auto and the summary line. Software rendering (or no WebGL
+// at all) is reported as such so Auto picks Low.
+function detectGpu() {
+  try {
+    var c = document.createElement('canvas');
+    var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return 'Software (no WebGL)';
+    var name = '';
+    // Firefox already exposes the unmasked name and warns about the extension.
+    if (!/Firefox\//.test(navigator.userAgent)) {
+      var ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext) name = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+    }
+    if (!name) name = gl.getParameter(gl.RENDERER);
+    var lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+    return String(name || 'Unknown GPU');
+  } catch (e) { return 'Unknown GPU'; }
+}
+
+function detectMobile() {
+  try {
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    return !!(coarse && (navigator.maxTouchPoints || 0) > 0);
+  } catch (e) { return false; }
+}
+
+function reducedMotion() {
+  var os = false;
+  try { os = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+  return os || !!settings.reducedMotion;
+}
+
+function gfxSaved() { return settings.graphics || {}; }
+
+// Resolve the saved graphics settings and push them to every live renderer.
+function applyGraphics() {
+  gfx = Gfx.resolve(gfxSaved(), detectedPreset, { reducedMotion: reducedMotion() });
+  document.body.setAttribute('data-gfx-preset', gfx.preset);
+  if (boardView) boardView.setConfig(gfx);
+  updateFps(null);
+  refreshGfxSummary();
+}
+
+function saveGraphics(next) {
+  settings.graphics = next;
+  saveSettings(settings);
+  applyGraphics();
+}
+
+function updateFps(fps, ms) {
+  if (!gfx || !gfx.showFps) { if (fpsEl && fpsEl.parentNode) fpsEl.parentNode.removeChild(fpsEl); fpsEl = null; return; }
+  if (!fpsEl) { fpsEl = h('div', { id: 'gfx-fps-readout', 'aria-hidden': 'true' }); document.body.appendChild(fpsEl); }
+  fpsEl.textContent = fps == null ? '… fps' : tr('gfx.fpsReadout', { fps: fps, ms: (ms || 0).toFixed(1) });
+}
+
+function makeBoardView(canvas, getState, getSelected) {
+  if (boardView) boardView.destroy();
+  boardView = Board.create(canvas, {
+    getState: getState,
+    getSelected: getSelected,
+    cellSize: function (s) { return cellSizeFor(s); },
+    tweenMs: function () { return autoTimer ? Math.round(Math.max(120, 420 / (settings.simSpeed || 1)) * 0.7) : 170; },
+    shared: gfxShared,
+    onFps: function (fps, ms) { updateFps(fps, ms); },
+    onFail: function () { gfxFailed = true; refreshGfxSummary(); },
+    onResize: function () { refreshGfxSummary(); }
+  });
+  boardView.setConfig(gfx);
+  return boardView;
+}
 
 // tool ids used by UI buttons
 var TOOL_BELT='belt', TOOL_MACHINE='machine', TOOL_ROTATE='rotate', TOOL_REMOVE='remove', TOOL_UPGRADE='upgrade';
@@ -108,6 +197,7 @@ function renderTitle(root) {
     h('small',{id:'account-line'},[accountText()]),
     h('small',null,['Original. No real-money wagering, no ads, no energy pressure.'])
   ]);
+  foot.appendChild(settingsButton('btn'));
   root.appendChild(foot);
 }
 
@@ -260,11 +350,164 @@ function renderPaused(root) {
   actions.push(btn('Restart round', function(){ startRound(sessionCfg, sessionKind()); }));
   actions.push(btn('How to play', function(){ setScreen('help'); }));
   actions.push(btn('Sound: ' + (settings.muted ? 'off' : 'on'), function(){ toggleMute(); render(); }));
+  actions.push(settingsButton('btn primary big'));
   actions.push(btn('Leave round', function(){ leaveRound(); }));
   root.appendChild(h('div',{class:'actions'},actions));
 
   var foot = h('footer',{class:'foot'},[h('small',null,['Paused.'])]);
   root.appendChild(foot);
+}
+
+// ---------- Settings screen (Graphics) ----------
+function settingsButton(cls) {
+  return h('button', { class: cls, id: screen === 'play' ? 'open-settings-play' : 'open-settings', 'data-action': 'open-settings',
+    onclick: function () { openSettings(); } }, [tr('settings.open')]);
+}
+
+function openSettings() {
+  settingsReturn = screen;
+  setScreen('settings');
+}
+
+function closeSettings() {
+  var back = settingsReturn || 'title';
+  if ((back === 'play' || back === 'paused') && !(state && !state.terminal)) back = 'title';
+  setScreen(back);
+}
+
+// A small built line on the "First Smelter" layout, stepped a few ticks, so
+// the preview shows belts, goods, a working machine and the Exchange.
+function buildPreviewState() {
+  var cfg = Content.journeyCfg(4);
+  var s = Rules.createGame(cfg);
+  var cmds = [
+    { type: 'place', x: 4, y: 2, kind: 'machine', recipe: 'smelt', dir: 'E' },
+    { type: 'place', x: 1, y: 0, kind: 'belt', dir: 'E' }, { type: 'place', x: 2, y: 0, kind: 'belt', dir: 'E' },
+    { type: 'place', x: 3, y: 0, kind: 'belt', dir: 'E' }, { type: 'place', x: 4, y: 0, kind: 'belt', dir: 'S' },
+    { type: 'place', x: 4, y: 1, kind: 'belt', dir: 'S' }
+  ];
+  for (var i = 0; i < cmds.length; i++) { var r = Rules.applyCommand(s, cmds[i]); if (r.ok) s = r.state; }
+  for (var k = 0; k < 13; k++) { var rt = Rules.applyCommand(s, { type: 'tick', atMs: 0 }); if (rt.ok) s = rt.state; }
+  return s;
+}
+
+var previewTimer = null;
+function stopPreview() { if (previewTimer) { clearInterval(previewTimer); previewTimer = null; } }
+
+function tierLabel(tier) { return tr('gfx.tier.' + tier); }
+function presetLabel(p) { return tr('gfx.preset.' + p); }
+
+function gfxSelect(id, dataKey, label, options, value, onChange) {
+  var sel = h('select', { id: id, 'data-gfx': dataKey, onchange: function () { onChange(sel.value); } });
+  for (var i = 0; i < options.length; i++) {
+    var o = h('option', { value: options[i][0] }, [options[i][1]]);
+    if (options[i][0] === value) o.selected = true;
+    sel.appendChild(o);
+  }
+  return h('div', { class: 'gfx-row' }, [h('label', { for: id }, [label]), sel]);
+}
+
+function gfxToggle(id, dataKey, label, checked, onChange) {
+  var cb = h('input', { type: 'checkbox', id: id, 'data-gfx': dataKey, onchange: function () { onChange(cb.checked); } });
+  cb.checked = !!checked;
+  return h('div', { class: 'gfx-row gfx-check' }, [cb, h('label', { for: id }, [label])]);
+}
+
+function gfxControls() {
+  var saved = gfxSaved();
+  var box = h('div', { class: 'gfx-controls', id: 'gfx-controls' });
+  var presetOpts = [['auto', tr('gfx.auto', { tier: presetLabel(detectedPreset) })]];
+  for (var i = 0; i < Gfx.PRESETS.length; i++) presetOpts.push([Gfx.PRESETS[i], presetLabel(Gfx.PRESETS[i])]);
+  var cur = Gfx.PRESETS.indexOf(saved.preset) >= 0 ? saved.preset : 'auto';
+  box.appendChild(gfxSelect('gfx-preset', 'preset', tr('gfx.quality'), presetOpts, cur, function (v) {
+    saveGraphics(Gfx.choosePreset(gfxSaved(), v)); rebuildGfxControls('gfx-preset');
+  }));
+
+  var pct = Math.round(Gfx.clampScale(saved.render_scale) * 100);
+  var out = h('output', { id: 'gfx-scale-value', for: 'gfx-scale' }, [pct + '%']);
+  var range = h('input', { type: 'range', id: 'gfx-scale', 'data-gfx': 'render_scale', min: '50', max: '200', step: '5', value: String(pct) });
+  range.addEventListener('input', function () { out.textContent = range.value + '%'; });
+  range.addEventListener('change', function () {
+    var next = Object.assign({}, gfxSaved(), { render_scale: Number(range.value) / 100 });
+    saveGraphics(next);
+  });
+  box.appendChild(h('div', { class: 'gfx-row gfx-range' }, [h('label', { for: 'gfx-scale' }, [tr('gfx.scale')]), range, out]));
+
+  for (var c = 0; c < Gfx.CATEGORY_ORDER.length; c++) {
+    var cat = Gfx.CATEGORY_ORDER[c];
+    var tiers = Gfx.CATEGORIES[cat];
+    var opts = [['preset', tr('gfx.fromPreset', { tier: tierLabel(Gfx.presetTier(gfx.preset, cat)) })]];
+    for (var j = 0; j < tiers.length; j++) opts.push([tiers[j], tierLabel(tiers[j])]);
+    box.appendChild(gfxSelect('gfx-' + cat, cat, tr('gfx.cat.' + cat), opts, tiers.indexOf(saved[cat]) >= 0 ? saved[cat] : 'preset',
+      (function (category) { return function (v) { saveGraphics(Gfx.setOverride(gfxSaved(), category, v)); }; })(cat)));
+  }
+
+  box.appendChild(gfxToggle('gfx-adaptive', 'adaptive', tr('gfx.adaptive'), saved.adaptive !== false, function (on) {
+    saveGraphics(Object.assign({}, gfxSaved(), { adaptive: on }));
+  }));
+  box.appendChild(gfxToggle('gfx-fps', 'show_fps', tr('gfx.fps'), !!saved.show_fps, function (on) {
+    saveGraphics(Object.assign({}, gfxSaved(), { show_fps: on }));
+  }));
+  return box;
+}
+
+// Rebuild the controls (preset labels change) and keep keyboard focus.
+function rebuildGfxControls(focusId) {
+  var old = document.getElementById('gfx-controls');
+  if (!old) return;
+  var fresh = gfxControls();
+  old.parentNode.replaceChild(fresh, old);
+  var f = focusId && document.getElementById(focusId);
+  if (f) f.focus();
+}
+
+function refreshGfxSummary() {
+  var sum = document.getElementById('gfx-summary');
+  if (!sum || !gfx) return;
+  var px = boardView ? boardView.pixels() : [0, 0];
+  sum.textContent = tr('gfx.summary', { gpu: gpuName, preset: presetLabel(gfx.preset), cost: Gfx.cost(gfx), w: px[0], h: px[1] });
+  var note = document.getElementById('gfx-note');
+  if (note) note.hidden = !gfxFailed;
+  var mnote = document.getElementById('gfx-motion-note');
+  if (mnote) mnote.hidden = !gfx.reducedMotion;
+}
+
+function renderSettings(root) {
+  clearNode(root);
+  root.appendChild(h('h2', { lang: LOCALE }, [tr('settings.title')]));
+  root.appendChild(h('p', { lang: LOCALE }, [tr('settings.intro')]));
+
+  var panel = h('section', { class: 'panel gfx-panel', id: 'gfx-panel', lang: LOCALE, 'aria-labelledby': 'gfx-heading' });
+  panel.appendChild(h('h3', { id: 'gfx-heading' }, [tr('gfx.heading')]));
+  var layout = h('div', { class: 'gfx-layout' });
+  var prev = h('canvas', { id: 'gfx-preview', class: 'gfx-preview', role: 'img', 'aria-label': tr('gfx.preview'), style: '--board-ar: 6 / 4' });
+  previewState = buildPreviewState();
+  layout.appendChild(h('div', { class: 'gfx-preview-wrap' }, [prev]));
+  layout.appendChild(gfxControls());
+  panel.appendChild(layout);
+  panel.appendChild(h('p', { id: 'gfx-summary', class: 'gfx-summary', 'aria-live': 'polite' }, ['']));
+  panel.appendChild(h('p', { id: 'gfx-note', class: 'gfx-note', hidden: 'hidden' }, [tr('gfx.postNote')]));
+  panel.appendChild(h('p', { id: 'gfx-motion-note', class: 'gfx-note', hidden: 'hidden' }, [tr('gfx.motionNote')]));
+  root.appendChild(panel);
+
+  var foot = h('footer', { class: 'foot' }, [h('small', null, [''])]);
+  foot.appendChild(h('button', { class: 'btn primary', id: 'settings-back', onclick: function () { closeSettings(); } }, [tr('settings.back')]));
+  root.appendChild(foot);
+
+  makeBoardView(prev, function () { return previewState; }, function () { return null; });
+  refreshGfxSummary();
+  // Keep the preview line moving so animation, particles and glow are visible.
+  stopPreview();
+  previewTimer = setInterval(function () {
+    if (screen !== 'settings' || !boardView || document.hidden) return;
+    if (previewState.tick > 60) previewState = buildPreviewState();
+    var r = Rules.applyCommand(previewState, { type: 'tick', atMs: 0 });
+    if (!r.ok) { previewState = buildPreviewState(); return; }
+    boardView.noteTick();
+    previewState = r.state;
+    boardView.events(r.events);
+    boardView.update();
+  }, 520);
 }
 
 function renderResults(root) {
@@ -310,7 +553,8 @@ function renderPlay(root) {
     el.gold,
     el.tick,
     h('button',{class:'btn',onclick:function(){ setScreen('paused'); }},['Pause (P)']),
-    h('button',{class:'btn',onclick:function(){ setScreen('help'); }},['Help'])
+    h('button',{class:'btn',onclick:function(){ setScreen('help'); }},['Help']),
+    settingsButton('btn')
   ]);
   root.appendChild(head);
 
@@ -372,35 +616,34 @@ function legend() {
   return d;
 }
 
-// Cell size in device pixels; the canvas is scaled down by CSS on narrow screens.
-function cellSize() {
-  var cols = state.cfg.board.cols, rows = state.cfg.board.rows;
+// Logical cell size (the board's drawing unit). The backing store is sized
+// from the CSS width × pixel ratio × render scale by board.js.
+function cellSizeFor(s) {
+  var cols = s.cfg.board.cols, rows = s.cfg.board.rows;
   return Math.max(28, Math.min(64, Math.floor(640/cols), Math.floor(512/rows)));
 }
+function cellSize() { return cellSizeFor(state); }
 
 function boardCanvas() {
-  var cs = cellSize();
+  var cols = state.cfg.board.cols, rows = state.cfg.board.rows, cs = cellSize();
   var c = h('canvas',{
     id:'board', tabindex:'0', role:'application',
     'aria-label':'Assembly Vale board. Arrow keys move the selection, Enter applies the current tool.',
-    width: String(state.cfg.board.cols*cs), height: String(state.cfg.board.rows*cs)
+    width: String(cols*cs), height: String(rows*cs),
+    style: '--board-ar: ' + cols + ' / ' + rows + '; --board-ar-num: ' + (cols / rows)
   });
   c.addEventListener('click', onBoardClick);
   c.addEventListener('mousemove', onBoardHover);
   el.boardCanvas = c;
-  drawBoard(c);
+  makeBoardView(c, function(){ return state; }, function(){ return selectedCell; });
   return c;
 }
-
-function theme() { return Content.THEMES[state.cfg.theme] || Content.THEMES.meadow; }
 
 function pointerCell(canvas, ev) {
   var rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
-  var cs = cellSize();
-  var px = (ev.clientX - rect.left) * (canvas.width / rect.width);
-  var py = (ev.clientY - rect.top) * (canvas.height / rect.height);
-  var x = Math.floor(px / cs), y = Math.floor(py / cs);
+  var x = Math.floor((ev.clientX - rect.left) / rect.width * state.cfg.board.cols);
+  var y = Math.floor((ev.clientY - rect.top) / rect.height * state.cfg.board.rows);
   if (!Rules.inBounds(state.cfg, x, y)) return null;
   return { x: x, y: y };
 }
@@ -415,117 +658,6 @@ function onBoardClick(ev) {
   if (!c) return;
   selectCell(c.x, c.y);
   applyToolAt(c.x, c.y);
-}
-
-// Draw the whole board: terrain, then items (belts/sources), then machines.
-function drawBoard(canvas) {
-  var ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  var th = theme();
-  var cols = state.cfg.board.cols, rows = state.cfg.board.rows;
-  var cs = cellSize();
-
-  function cellRect(x,y){ return { x: x*cs, y: y*cs }; }
-  function center(x,y){ var r=cellRect(x,y); return { x:r.x+cs/2, y:r.y+cs/2 }; }
-
-  function arrow(cx, cy, dir, len, color, width) {
-    var d = Rules.DIRS[dir] || Rules.DIRS.E;
-    ctx.strokeStyle = color; ctx.lineWidth = width || 3; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - d[0]*len, cy - d[1]*len);
-    ctx.lineTo(cx + d[0]*len, cy + d[1]*len);
-    ctx.stroke();
-    // head
-    var hx = cx + d[0]*len, hy = cy + d[1]*len, s = len*0.55;
-    ctx.beginPath();
-    ctx.moveTo(hx, hy);
-    ctx.lineTo(hx - d[0]*s + d[1]*s*0.7, hy - d[1]*s + d[0]*s*0.7);
-    ctx.moveTo(hx, hy);
-    ctx.lineTo(hx - d[0]*s - d[1]*s*0.7, hy - d[1]*s - d[0]*s*0.7);
-    ctx.stroke();
-  }
-
-  function label(text, cx, cy, color, size) {
-    ctx.fillStyle = color; ctx.font = 'bold ' + (size || Math.round(cs*0.32)) + 'px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, cx, cy);
-  }
-
-  function item(it, cx, cy) {
-    var meta = Content.GOOD_META[it.t] || { color:'#ffd166', name: it.t };
-    ctx.fillStyle = meta.color;
-    ctx.beginPath(); ctx.arc(cx, cy, cs*0.17, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = 1.5; ctx.stroke();
-  }
-
-  // terrain base (checkered meadow, then rocks and water)
-  for (var y=0;y<rows;y++) for (var x=0;x<cols;x++) {
-    var r = cellRect(x,y);
-    ctx.fillStyle = ((x+y)%2===0) ? th.tileA : th.tileB;
-    ctx.fillRect(r.x, r.y, cs, cs);
-  }
-  (state.cfg.terrain||[]).forEach(function(t){
-    var r = cellRect(t.x, t.y);
-    ctx.fillStyle = t.k==='water' ? th.water : th.rock;
-    ctx.fillRect(r.x+1, r.y+1, cs-2, cs-2);
-  });
-
-  // belts and sources — under machines so machine bodies sit on top.
-  for (y=0;y<rows;y++) for (x=0;x<cols;x++) {
-    var cell = state.grid[y][x];
-    if (!cell) continue;
-    var c = center(x,y);
-    if (cell.k==='belt') {
-      var rb = cellRect(x,y);
-      ctx.fillStyle = th.belt;
-      ctx.fillRect(rb.x+cs*0.12, rb.y+cs*0.12, cs*0.76, cs*0.76);
-      arrow(c.x, c.y, cell.dir, cs*0.26, th.accent, Math.max(2, cs*0.07));
-      if (cell.itemRef) item(cell.itemRef, c.x, c.y);
-    } else if (cell.k==='source') {
-      var rs = cellRect(x,y);
-      ctx.fillStyle = '#3b3f45';
-      ctx.fillRect(rs.x+cs*0.08, rs.y+cs*0.08, cs*0.84, cs*0.84);
-      var meta = Content.GOOD_META[cell.item] || { color:'#ccc', name: cell.item };
-      ctx.fillStyle = meta.color;
-      ctx.fillRect(rs.x+cs*0.2, rs.y+cs*0.2, cs*0.6, cs*0.6);
-      // the good's initial keeps a source distinct from plain rock
-      label(meta.name.charAt(0), c.x, c.y - cs*0.05, '#1b1b1b', Math.round(cs*0.3));
-      arrow(c.x, c.y + cs*0.28, cell.dir, cs*0.14, '#f4f4f4', Math.max(2, cs*0.06));
-      if (cell.itemRef) item(cell.itemRef, c.x, c.y);
-    }
-  }
-
-  // machines (on top)
-  for (y=0;y<rows;y++) for (x=0;x<cols;x++) {
-    var m = state.grid[y][x];
-    if (!m || m.k!=='machine') continue;
-    var mc = center(x,y), rm = cellRect(x,y);
-    ctx.fillStyle = '#5b3f7a';
-    ctx.fillRect(rm.x+cs*0.08, rm.y+cs*0.08, cs*0.84, cs*0.84);
-    ctx.strokeStyle = m.level>=3 ? '#e74c3c' : (m.level>=2 ? '#f1c40f' : '#2b1d3a');
-    ctx.lineWidth = m.level>=2 ? 3 : 2;
-    ctx.strokeRect(rm.x+cs*0.08, rm.y+cs*0.08, cs*0.84, cs*0.84);
-    var rec = Rules.recipeById(state.cfg, m.recipe);
-    label(rec ? rec.name.charAt(0) : '?', mc.x, mc.y - cs*0.06, '#ffffff');
-    label('L' + m.level, mc.x, mc.y + cs*0.26, '#ded3ea', Math.round(cs*0.2));
-    arrow(mc.x + (Rules.DIRS[m.dir]||[1,0])[0]*cs*0.3, mc.y + (Rules.DIRS[m.dir]||[1,0])[1]*cs*0.3, m.dir, cs*0.1, '#ffd166', 2);
-    if (m.inBuf) item(m.inBuf, rm.x+cs*0.24, rm.y+cs*0.24);
-    if (m.outBuf) item(m.outBuf, rm.x+cs*0.76, rm.y+cs*0.76);
-  }
-
-  // sink (Exchange) — drawn late so it is always visible.
-  var sx = state.cfg.sink.x, sy = state.cfg.sink.y;
-  var sr = cellRect(sx,sy), sc = center(sx,sy);
-  ctx.fillStyle = '#b5342a';
-  ctx.fillRect(sr.x+cs*0.06, sr.y+cs*0.06, cs*0.88, cs*0.88);
-  label('$', sc.x, sc.y, '#ffe9c4', Math.round(cs*0.45));
-
-  // selection highlight, drawn last
-  var selr = cellRect(selectedCell.x, selectedCell.y);
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
-  ctx.strokeRect(selr.x+2, selr.y+2, cs-4, cs-4);
-  ctx.strokeStyle = '#101010'; ctx.lineWidth = 1;
-  ctx.strokeRect(selr.x+4, selr.y+4, cs-8, cs-8);
 }
 
 function toolButtons() {
@@ -705,11 +837,13 @@ function commit(res) {
   if (undoEnabled()) { history.push(state); if (history.length > 50) history.shift(); }
   state = res.state;
   playEvents(res.events);
+  if (boardView && screen==='play') boardView.events(res.events);
   afterStateChange();
   return true;
 }
 
 function doTick() {
+  if (boardView) boardView.noteTick();
   commit(Rules.applyCommand(state, { type:'tick', atMs: now() }));
 }
 
@@ -811,7 +945,7 @@ function refreshPlay() {
   }
   if (el.autoBtn) { clearNode(el.autoBtn); el.autoBtn.appendChild(document.createTextNode(autoTimer ? 'Stop auto-run (A)' : 'Auto-run (A)')); }
   if (el.hint) { clearNode(el.hint); el.hint.appendChild(document.createTextNode(hintText())); }
-  if (el.boardCanvas) drawBoard(el.boardCanvas);
+  if (el.boardCanvas && boardView) boardView.update();
 }
 
 // ---------- auto-run ----------
@@ -920,6 +1054,8 @@ function render() {
   var root = el.root; clearNode(root);
   el.gold = el.tick = el.info = el.tools = el.hint = el.status = el.autoBtn = null;
   el.boardCanvas = null;
+  if (boardView) { boardView.destroy(); boardView = null; }
+  stopPreview();
   if (screen==='title') renderTitle(root);
   else if (screen==='mode-select') renderModeSelect(root);
   else if (screen==='journey-select') renderJourneySelect(root);
@@ -930,6 +1066,7 @@ function render() {
   else if (screen==='paused') renderPaused(root);
   else if (screen==='results') renderResults(root);
   else if (screen==='play') renderPlay(root);
+  else if (screen==='settings') renderSettings(root);
 }
 
 // ---------- keyboard ----------
@@ -940,6 +1077,10 @@ function onKeyDown(ev) {
 
   if (screen==='paused') {
     if (key==='Escape' || key==='p' || key==='P') { ev.preventDefault(); setScreen('play'); }
+    return;
+  }
+  if (screen==='settings') {
+    if (key==='Escape') { ev.preventDefault(); closeSettings(); }
     return;
   }
   if (screen==='help') {
@@ -978,6 +1119,7 @@ async function init() {
   document.addEventListener('visibilitychange', function(){
     if (document.hidden && screen==='play') { setAuto(false); setScreen('paused'); }
   });
+  applyGraphics();
   // WebAudio is unlocked by startRound's user gesture, never during page load.
   render();
 
@@ -994,6 +1136,7 @@ async function init() {
     if (remoteDoc) {
       Store.save(remoteDoc); // local cache mirrors the remote doc
       settings = loadSettings();
+      applyGraphics();
       render();
     }
   } catch (e) { /* offline or no token: the local save is already loaded */ }

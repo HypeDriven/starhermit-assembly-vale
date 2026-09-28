@@ -63,7 +63,7 @@ const browserNoise = /GL Driver Message|GPU stall due to ReadPixels|Automatic fa
 
 const browser = await chromium.launch({
   executablePath: '/usr/bin/google-chrome',
-  args: ['--no-sandbox', '--enable-unsafe-swiftshader'],
+  args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--disable-gpu', '--disable-software-rasterizer'],
 });
 
 const SHOT = (stage, pass) => `/tmp/assembly-vale-e2e-${stage}-${pass}.png`;
@@ -76,7 +76,7 @@ async function runPass(passName, contextOpts) {
     if (browserNoise.test(String(e))) return;
     errors.push(`pageerror: ${e.message}`);
   });
-  page.on('console', (m) => { if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`console: ${m.text()}`); });
+  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console: ${m.text()}`); });
 
   const step = async (name, fn) => {
     await fn();
@@ -287,6 +287,73 @@ async function runPass(passName, contextOpts) {
       const after = Number(head.match(/Tick: (\d+)/)[1]);
       if (after !== before) throw new Error(`auto-run did not stop: ${before} -> ${after}`);
       await page.screenshot({ path: SHOT('score-chase', passName) });
+      await btn('Title').click();
+      await page.waitForSelector('#root h1');
+    });
+
+    await step('settings: Graphics presets, override and persistence', async () => {
+      const bodyPreset = () => page.evaluate(() => document.body.getAttribute('data-gfx-preset'));
+      await btn('Settings').click();
+      await page.waitForSelector('#gfx-panel');
+      if ((await page.textContent('#gfx-panel h3')) !== 'Graphics') throw new Error('Graphics section missing');
+      // headless Chrome renders in software, so Auto resolves to Low
+      if ((await bodyPreset()) !== 'low') throw new Error(`auto preset should be low, got ${await bodyPreset()}`);
+      const autoLabel = await page.textContent('#gfx-preset option[value="auto"]');
+      if (autoLabel !== 'Auto (detected: Low)') throw new Error(`bad auto label: ${autoLabel}`);
+      const vw = page.viewportSize().width;
+      const box = await page.locator('#gfx-panel').boundingBox();
+      if (box.x < 0 || box.x + box.width > vw + 1) throw new Error(`Graphics panel overflows the viewport: ${JSON.stringify(box)}`);
+      await page.selectOption('#gfx-preset', 'low');
+      if ((await bodyPreset()) !== 'low') throw new Error('Low not applied');
+      await page.selectOption('#gfx-preset', 'high');
+      if ((await bodyPreset()) !== 'high') throw new Error('High not applied');
+      if ((await page.getAttribute('#gfx-preview', 'data-gfx-preset')) !== 'high') throw new Error('preview not on High');
+      if (!(await page.textContent('#gfx-summary')).includes('High')) throw new Error('summary does not name the preset');
+      const fromPreset = await page.textContent('#gfx-shadows option[value="preset"]');
+      if (fromPreset !== 'From preset (Medium)') throw new Error(`bad shadows default label: ${fromPreset}`);
+      await page.selectOption('#gfx-bloom', 'off');
+      await page.locator('#gfx-scale').fill('150');
+      await page.locator('#gfx-scale').dispatchEvent('change');
+      if ((await page.textContent('#gfx-scale-value')) !== '150%') throw new Error('render scale readout not updated');
+      await page.locator('#gfx-fps').check();
+      await page.waitForSelector('#gfx-fps-readout');
+      await page.locator('#gfx-fps').uncheck();
+      if (await page.locator('#gfx-fps-readout').count()) throw new Error('fps readout should hide');
+      await page.waitForTimeout(700); // let the animated preview run a few ticks
+      await page.screenshot({ path: SHOT('settings', passName), fullPage: true });
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForSelector('#root h1');
+      if ((await bodyPreset()) !== 'high') throw new Error('preset did not survive reload');
+      await btn('Settings').click();
+      await page.waitForSelector('#gfx-panel');
+      if ((await page.inputValue('#gfx-preset')) !== 'high') throw new Error('preset select not restored');
+      if ((await page.inputValue('#gfx-bloom')) !== 'off') throw new Error('bloom override not restored');
+      if ((await page.inputValue('#gfx-scale')) !== '150') throw new Error('render scale not restored');
+      // choosing a preset clears overrides
+      await page.selectOption('#gfx-preset', 'ultra');
+      if ((await page.inputValue('#gfx-bloom')) !== 'preset') throw new Error('preset change should clear overrides');
+      await btn('Back').click();
+      await page.waitForSelector('#root h1');
+    });
+
+    await step('play at Ultra, open Settings in-game, return, then Low', async () => {
+      await btn('Score Chase').click();
+      await page.waitForSelector('canvas#board');
+      if ((await page.getAttribute('canvas#board', 'data-gfx-preset')) !== 'ultra') throw new Error('board not on Ultra');
+      for (let i = 0; i < 6; i++) await btn('Run one tick (Space)').click();
+      await btn('Auto-run (A)').click();
+      await page.waitForTimeout(1200);
+      await btn('Stop auto-run (A)').click();
+      await page.screenshot({ path: SHOT('play-ultra', passName) });
+      await page.locator('#root .head').getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.waitForSelector('#gfx-panel');
+      await page.selectOption('#gfx-preset', 'low');
+      await btn('Back').click();
+      await page.waitForSelector('canvas#board');
+      if ((await page.getAttribute('canvas#board', 'data-gfx-preset')) !== 'low') throw new Error('board not on Low after change');
+      const head = await page.textContent('#root .head');
+      if (!/Tick: (\d+)/.test(head) || Number(head.match(/Tick: (\d+)/)[1]) < 6) throw new Error(`round not kept: ${head}`);
+      await btn('Run one tick (Space)').click();
       await btn('Title').click();
       await page.waitForSelector('#root h1');
     });

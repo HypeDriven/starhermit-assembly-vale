@@ -2,8 +2,9 @@
   "name": "assembly-vale",
   "private": true,
   "scripts": {
-    "test": "npm run test:rules && npm run test:e2e",
+    "test": "npm run test:rules && npm run test:gfx && npm run test:e2e",
     "test:rules": "node tests/rules.test.mjs",
+    "test:gfx": "node --test tests/gfx.test.mjs",
     "test:e2e": "node tests/e2e.mjs"
   },
   "devDependencies": {

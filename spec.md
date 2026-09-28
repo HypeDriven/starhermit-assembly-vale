@@ -11,7 +11,7 @@ Assembly Vale is a single-player, turn-tick production puzzle: lay conveyor belt
 | Players | 1; asynchronous best-score comparison through local progress |
 | Session | 2–6 minutes per round (120–360 ticks at 420 ms per auto-run tick, plus planning). A full Journey is 40 rounds. |
 | Platforms | Desktop and mobile browsers; portrait and landscape |
-| Rendering | Semantic HTML shell built by `js/app.js`; the board is a single 2D `<canvas>` redrawn from rules state. `vendor/three.module.min.js` is vendored but never loaded. |
+| Rendering | Semantic HTML shell built by `js/app.js`; the board is a single 2D `<canvas>` drawn by `js/board.js` from rules state, with quality presets from `js/gfx.js` (see **Graphics** in §8). `vendor/three.module.min.js` is vendored but never loaded. |
 | Audio | WebAudio synthesis with authored Opus one-shots layered on top (`sfx/`) |
 | Persistence | `localStorage` key `assemblyvale.save.v1` (versioned, checksummed) |
 
@@ -19,17 +19,21 @@ File map:
 
 | Path | Role |
 |---|---|
-| `index.html` | Entry point; loads the six classic scripts then `js/app.js` as a module. Cache-busted with `?v=gdd-1`. |
+| `index.html` | Entry point; loads the nine classic scripts then `js/app.js` as a module. Cache-busted with `?v=gdd-1` / `?v=gfx-1`. |
 | `js/rng.js` | mulberry32 PRNG, FNV-1a `hashString`, three derived streams (rules, decor, av). UMD (`window.AVRNG`). |
 | `js/rules.js` | Pure deterministic rules engine: `createGame`, `applyCommand`, `simulate`, legality checks, `hint`, hashing, serialization. UMD (`window.AVRules`). |
 | `js/content.js` | Versioned data: goods, recipes, five themes, twelve ASCII layouts, 40 Journey stages, 5 lessons, 5 challenges, 3 practice presets, Score Chase, daily generator, `validateStage`. UMD (`window.AVContent`). |
 | `js/store.js` | Save document (settings + progress) with FNV-1a checksum, migration, memory fallback; local leaderboard helpers; `loadRaw` parses a wrapped save string (local cache + cloud mirror). |
 | `js/platform.js` | StarHermit host adapter (UMD, `window.AVPlatform`): fragment launch-token read/strip, `sub`+`game_scope` decode, Bearer auth, 45-min launch-token refresh, profile nickname, cloud-save mirror (zip+base64) with sync status. No-op without a token. |
 | `js/audio.js` | Buses (music, effects, ambience, voice), 18 synthesized events, clip loader for `sfx/*.opus`, valley ambience, factory hum, generative pad. |
-| `js/app.js` | Screens, board drawing, input, hints, undo, auto-run, progress recording. All UI strings live here. |
+| `js/gfx.js` | Pure graphics quality model (UMD, `window.AVGfx`): presets, categories, `detectPreset`, `resolve`, `presetTier`, `choosePreset`, `setOverride`, `cost`, `describe`, `adaptStep`. |
+| `js/board.js` | Board renderer (`window.AVBoard`): backing-store sizing, cached terrain layer, pieces, shadows, glow, grade, particles, gliding goods, frame loop, adaptive resolution, FPS sampling. |
+| `js/i18n.js` | Locale table (`window.AVI18n`) for the Settings/Graphics panel in the nine target locales; `pick(navigator.languages)`. |
+| `js/app.js` | Screens (including Settings), input, hints, undo, auto-run, progress recording. All other UI strings live here. |
 | `css/style.css` | Palette tokens, buttons, play layout, mobile breakpoint, reduced-motion rule. |
 | `server.js` | Optional Node static server plus `GET /api/v1/time`. Declared in `starhermit.txt` as `server=server.js`. |
 | `tests/rules.test.mjs` | 10 rules/content checks (`npm run test:rules`). |
+| `tests/gfx.test.mjs` | Graphics model + locale table checks (`npm run test:gfx`, `node --test`). |
 | `tests/e2e.mjs` | Playwright playthrough at 1280×800 and 390×844 + shipped-server check (`npm run test:e2e`). |
 | `sfx/manifest.txt` | Canonical SFX table (file, event id, sound, usage). `manifest.json` is the runtime/generator list of clips on disk, `manifest.md` is the human table. |
 | `assets/` | Key art and illustrations (`keyart.webp`, `exchange-ledger.webp`, `help-line.webp`). |
@@ -186,6 +190,8 @@ title ─┬─ mode-select ─┬─ journey-select ──┐
                                                                        └─ title
 ```
 
+Settings is reachable from the title footer, the play header and the Pause screen; Back (or Esc) returns to the screen it was opened from (a round in progress is kept).
+
 Every screen is rebuilt from scratch on transition (`clearNode(root)`); the play screen refreshes in place (`refreshPlay`) so keyboard focus survives and the canvas is not recreated. Leaving a round from Play or Pause discards it without a result.
 
 Layouts:
@@ -195,7 +201,7 @@ Layouts:
 - Safe areas: `#root` padding is `max(12px, env(safe-area-inset-*))` on all four sides and the viewport uses `viewport-fit=cover`.
 - Must never be cut off: the board, the Gold/Tick pills, the active tool button, "Run one tick", the status line. All are in normal flow, nothing is fixed or absolutely positioned, so the page scrolls rather than clips.
 
-Board rendering (`drawBoard`): cell size = clamp(28, min(64, 640/cols, 512/rows)) device pixels; terrain checker, then belts/sources with their goods, then machines (input good top-left, output good bottom-right, `L2`/`L3` badge, gold facing tick), then the Exchange, then the white selection frame.
+Board rendering (`js/board.js`): drawing uses a logical cell size = clamp(28, min(64, 640/cols, 512/rows)) through a canvas transform; the backing store is CSS width × min(dpr, 2) × preset scale × adaptive scale, and the canvas keeps its `cols / rows` aspect ratio via `--board-ar` (short landscape sizes it from the available height). Order: cached terrain layer, water shimmer and cloud shadows, belts/sources, goods, machines (input good top-left, output good bottom-right, `L2`/`L3` badge, gold facing tick, progress bar), the Exchange, particles, glow and grade overlays, then the white selection frame (never graded). Pointer cells are mapped by fraction of the canvas box.
 
 ## 8. Art direction
 
@@ -220,7 +226,9 @@ Shape language: everything is an inset square on a square tile — sources at 84
 
 Typography: `system-ui` stack, 16 px body, `h1` clamp(1.8rem, 5vw, 2.6rem), tabular numerals on pills and score rows, 62–70 ch measure on paragraphs and lists.
 
-Motion: none in the board — state changes are instantaneous redraws, which keeps the tick as the unit of time. The only transitions are button press (1 px translate, removed under `prefers-reduced-motion`) and gain ramps in audio.
+Motion: the tick stays the unit of time — goods glide to their new cell and belt rollers slide one pitch only when a tick runs (≈170 ms, or 70% of the auto-run period), and nothing on the board moves between ticks except ambient water shimmer, drifting cloud shadows, furnace-window pulses and event particles. Under `prefers-reduced-motion` (or `settings.reducedMotion`) animation and particles are forced off. Other transitions: button press (1 px translate, removed under reduced motion) and gain ramps in audio.
+
+**Graphics.** Light comes from the top-left: detailed pieces are bevelled (lit top/left edge, shaded bottom/right) with a soft top-to-bottom gradient and cast drop shadows toward the bottom-right (hard at Low tier, blurred at Medium, wider at High); goods are shaded spheres with a contact shadow. The ground is a cached layer with per-tile light falloff and seeded grass tufts and flowers, rocks are three lit boulders, water has a depth gradient, ripples and a moving glint. Belts have side rails and rollers that slide one pitch per tick, and arrows and machine letters get a dark keyline so they stay readable on every theme. Machines show a progress bar while working; with glow on, a working machine's window pulses warm orange and the Exchange (striped awning) glows, flaring on each sale. Particles: coins from the Exchange on a sale, confetti on a completed contract, steam and sparks on a craft, dust from a mine spawn, a dust ring on build/remove, dark drops on a spoil, a spark ring on upgrade (≤320 live). The colour grade lifts saturation/contrast of the terrain layer, adds a warm-to-cool light wash, a mild vignette (≤20% at the corners) and drifting cloud shadows under the pieces. The **Settings** screen's **Graphics** section offers a live preview board (a running First Smelter line), Quality (Auto — from the WebGL `UNMASKED_RENDERER` string: software/no WebGL → Low, discrete GPUs and Apple M → High, otherwise Balanced, capped at Balanced on touch devices; Low; Balanced; High; Ultra), Render scale 50–200%, one override per category — Shadows (off/low/medium/high), Surface detail (plain/detailed), Glow (off/on), Colour grade and vignette (off/on), Particles (off/low/high), Animation (static/animated) — each defaulting to "From preset (…)", Adaptive resolution (on by default: over 90 frames, >26 ms steps the scale down 0.1 to 0.6, <14 ms steps up 0.05 to 1) and Show frame rate (a small readout in the top-right corner), plus a summary "GPU · preset · cost ×n · W×H px". Choosing a preset clears overrides; every change applies immediately and is saved as `settings.graphics` in the save document. Low reproduces the original flat board and runs no frame loop (redraw on change only); higher presets run `requestAnimationFrame` only while something moves and never while the tab is hidden. If an overlay pass throws, the board renders without it and the panel says so. `<body>` and each board canvas carry `data-gfx-preset`; controls have ids `gfx-preset`, `gfx-scale`, `gfx-<category>`, `gfx-adaptive`, `gfx-fps`.
 
 Visual assets the design calls for (all in `assets/`, generated with FLUX.2 klein, compressed to WebP, wired as decorative `<img alt="">` that remove themselves if the file fails to load):
 
@@ -262,7 +270,7 @@ Captions: when `settings.captions` is true, each event also writes a short capti
 
 ## 10. Localization
 
-Shipped language: English only. All player-facing strings are literals in `js/app.js` (screen text, `REASON_TEXT`, status messages, hint sentences) and `js/content.js` (stage, lesson, challenge and good names). There is no locale table, no language selection, and `<html lang="en">` is fixed. Spelling is mixed ("Fulfilling" on the title, "Fulfil" on Help). The nine target locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) are listed under "Design intent not yet implemented". Layout allowance for translation exists already: buttons are `flex: 1 1 220px` and wrap, tool labels are full-width, and no text is fixed-width, so 30% expansion does not clip.
+Shipped language: English, except the Settings/Graphics panel, which is localized in all nine target locales through `js/i18n.js` (locale from `navigator.languages`, exact tag then language fallback; the panel carries a matching `lang`). All other player-facing strings are literals in `js/app.js` (screen text, `REASON_TEXT`, status messages, hint sentences) and `js/content.js` (stage, lesson, challenge and good names). There is no locale table, no language selection, and `<html lang="en">` is fixed. Spelling is mixed ("Fulfilling" on the title, "Fulfil" on Help). The nine target locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) are listed under "Design intent not yet implemented". Layout allowance for translation exists already: buttons are `flex: 1 1 220px` and wrap, tool labels are full-width, and no text is fixed-width, so 30% expansion does not clip.
 
 ## 11. Accessibility
 
@@ -271,7 +279,8 @@ Shipped language: English only. All player-facing strings are literals in `js/ap
 - Screen reader: the status line is `role=status aria-live=polite` and announces the selected cell ("(2, 1) belt facing E carrying Ore"), every result of an action, every sale and every refusal. Tool buttons carry `aria-pressed`. Contracts and score are plain text rows.
 - Contrast: `#eef6ee` on `#101a14` (≈15:1), `#20180a` on `#ffd166` (≈11:1), dim text `#b7c9ba` on panels (≈8:1).
 - Target size: all buttons are ≥44 px tall with 8–10 px gaps; board cells are ≥28 device px and scale with the canvas.
-- Reduced motion: honoured by the `prefers-reduced-motion` rule; the game has no other animation.
+- Reduced motion: honoured by the `prefers-reduced-motion` rule and by the graphics model, which forces board animation and particles off.
+- Settings panel: native `<select>`, range and checkbox controls with `<label for>`, ≥44 px targets, keyboard focus kept on the control that changed; it stacks to one column and scrolls with the page on phones.
 - Colour is never the only cue: every piece has a glyph, machines show `L2/L3` text, the legend labels each colour, and the info panel describes the selection in words.
 - Audio is optional: nothing in the rules depends on hearing an event; captions can mirror events to the status line.
 
@@ -291,17 +300,19 @@ Not used: presence heartbeats, achievements, leaderboards (the `store.js` board 
 - **Module boundaries**: `rng` → `rules`, `content` (both UMD, Node-testable, no DOM, no `Date`); `store` and `audio` are browser globals; `app.js` is the only module that touches the DOM and the only caller of `Rules.applyCommand`. `content.js` is data plus validators; it never resolves rules.
 - **Determinism**: rules never read time or randomness; `applyCommand` returns a fresh clone (`clone` = JSON round-trip) and the old state is kept for undo. `validateCommandShape` bounds command size (512 bytes) and checks types for any future network/replay boundary. `serialize`/`deserialize` are version-checked (`STATE_VERSION 1`).
 - **Persistence**: one document `{v, settings, progress}` wrapped as `{sum, payload}` with an FNV-1a checksum; a bad checksum or a newer version yields a clean slate; an in-memory fallback covers private mode. `migrate` fills new settings and stats keys.
-- **Performance**: the board is redrawn whole on each refresh (≤80 cells, one `fillRect` set per cell); no animation loop runs, so idle CPU is zero. Auto-run is a `setInterval` at 120–420 ms. Audio nodes are created per event and garbage-collected; the ambience buffer is 2 s looped.
+- **Performance**: the board is redrawn whole on each refresh (≤80 cells); terrain is cached in an offscreen layer keyed by stage, theme, detail, grade and backing size. At Low no animation loop runs, so idle CPU is zero; higher presets loop only while something moves (glides, particles, water, clouds, pulses) and adaptive resolution trims the backing store when frames are slow. Auto-run is a `setInterval` at 120–420 ms. Audio nodes are created per event and garbage-collected; the ambience buffer is 2 s looped.
 - **Resilience**: missing clips fall back to synthesis; missing images remove themselves; `localStorage` failures fall back to memory; hiding the tab pauses the round.
-- **How the e2e drives the real UI**: `tests/e2e.mjs` starts its own static server on an ephemeral port, launches system Chrome through `playwright-core`, and only uses `getByRole('button', {name})` and canvas clicks positioned by grid fraction — the same surface a player uses. It then spawns `server.js` on port 8117 (override `E2E_SERVER_PORT`) to check the shipped server.
+- **How the e2e drives the real UI**: `tests/e2e.mjs` starts its own static server on an ephemeral port, launches system Chrome through `playwright-core` (with `--disable-gpu --disable-software-rasterizer`; GPU-composited screenshots hang in this environment), and only uses `getByRole('button', {name})` and canvas clicks positioned by grid fraction — the same surface a player uses. It then spawns `server.js` on port 8117 (override `E2E_SERVER_PORT`) to check the shipped server.
 
 ## 14. Testing and acceptance criteria
 
-`npm test` = `test:rules` then `test:e2e`.
+`npm test` = `test:rules`, `test:gfx`, then `test:e2e`.
+
+`tests/gfx.test.mjs` (7 tests): `detectPreset` on software, discrete, integrated and mobile GPU strings; `resolve` for Auto/explicit presets, overrides, invalid tiers and render-scale clamping; reduced motion; choosing a preset clears overrides; `presetTier`/`describe`/`cost`/`adaptStep`; every locale has every panel string and `pick` falls back correctly.
 
 `tests/rules.test.mjs` (10 checks): every stage definition validates; every config builds with an in-bounds sink and at least one source; challenge/practice configs carry their ids and unknown difficulties fall back to Standard; the daily is stable per date; a six-belt line wins First Ford (gold 24, tick 6, `contracts-complete`, 5 ore); seven illegal commands are refused with the right reason and leave the hash unchanged; a Smelter costs its price, upgrades from 4 to 3 ticks, and refunds half on removal; the tick limit ends the round as `time-up` at exactly the limit; identical command sequences hash identically; serialization round-trips.
 
-`tests/e2e.mjs`, at 1280×800 and again at 390×844 with touch: title heading and all seven mode buttons visible; mode select and back; Journey lists 40 stages; First Ford header shows name, `Gold: 60`, `Tick: 0 / 120` and the contract row; six canvas clicks build the line and cost 36 gold and 6 ticks; a click on rock reports "rock" and costs no tick; clicking "Run one tick" until the results screen shows "Contracts complete" with a positive score; the save document records the win and `journeyBest.j01`; Space ticks, ArrowRight+Enter builds, P pauses, Resume works; Practice Relaxed starts with `Gold: 300` and Undo rolls the tick back; five lessons listed and "Lay the line" starts with its text; five challenges listed and Shoestring starts with `Gold: 90`, `Tick: 0 / 210`; the daily header carries a date; Score Chase auto-run advances and stops. Any console error or page error fails the pass. Finally `server.js` must serve `index.html` at `/`, refuse `/%2e%2e/` escapes, answer 400 to malformed encoding, and return a numeric time.
+`tests/e2e.mjs`, at 1280×800 and again at 390×844 with touch: title heading and all seven mode buttons visible; mode select and back; Journey lists 40 stages; First Ford header shows name, `Gold: 60`, `Tick: 0 / 120` and the contract row; six canvas clicks build the line and cost 36 gold and 6 ticks; a click on rock reports "rock" and costs no tick; clicking "Run one tick" until the results screen shows "Contracts complete" with a positive score; the save document records the win and `journeyBest.j01`; Space ticks, ArrowRight+Enter builds, P pauses, Resume works; Practice Relaxed starts with `Gold: 300` and Undo rolls the tick back; five lessons listed and "Lay the line" starts with its text; five challenges listed and Shoestring starts with `Gold: 90`, `Tick: 0 / 210`; the daily header carries a date; Score Chase auto-run advances and stops; Settings → Graphics shows "Auto (detected: Low)" (headless Chrome runs with `--disable-gpu`, so no WebGL), the panel fits the viewport, Low then High apply to `<body>` and the preview, a Glow override, 150% render scale and the frame-rate readout work, all survive a reload, choosing Ultra clears the override, a Score Chase round runs at Ultra (ticks + auto-run), Settings opened from the play header switches to Low and returns to the same round. Any console error, console warning or page error fails the pass. Finally `server.js` must serve `index.html` at `/`, refuse `/%2e%2e/` escapes, answer 400 to malformed encoding, and return a numeric time.
 
 QA bar (agents/qa.md) as checkable statements:
 
@@ -330,7 +341,7 @@ QA bar (agents/qa.md) as checkable statements:
 - No localization: English strings inline in `app.js`/`content.js`; mixed US/UK spelling.
 - Lesson `steps` in `content.js` are authored but `app.js` shows only the lesson paragraph; steps are not tracked or ticked off, and a lesson counts as done when its contracts are met.
 - Journey stars are computed and saved (`journeyStars`) but never displayed; the Journey list shows best score only.
-- Most `DEFAULT_SETTINGS` (captions, simSpeed, largeText, highContrast, colorPalette, leftHanded, confirmBuilds, boardMirror, graphicsTier) have no UI; only Sound on/off is exposed, on the Pause screen.
+- Most `DEFAULT_SETTINGS` (captions, simSpeed, largeText, highContrast, colorPalette, leftHanded, confirmBuilds, boardMirror, reducedMotion) have no UI; Sound on/off is on the Pause screen and graphics are on the Settings screen. The legacy `graphicsTier` field is unused (superseded by `settings.graphics`).
 - The board has no DOM mirror; a screen-reader user navigates by the status line and the "Selected:" row.
 - `server.js` serves every file under the game root, including `tests/` and `tools/`, and does not implement the `/ws` upgrade its header comment mentions.
 - The daily date comes from the client clock, so players near midnight UTC on a skewed clock can see a different day than the platform.
@@ -344,4 +355,4 @@ QA bar (agents/qa.md) as checkable statements:
 - Daily date from `/api/v1/time` with round-trip offset.
 - Lesson step tracking driven by rules events, with the current step highlighted in the info panel.
 - Star display on the Journey list and a `star` sound on the results screen.
-- Settings screen exposing the persisted options (captions, sim speed, large text, high contrast, left-handed layout).
+- Settings screen sections for the remaining persisted options (captions, sim speed, large text, high contrast, left-handed layout, reduced motion); only Graphics exists today.
