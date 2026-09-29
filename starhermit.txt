@@ -1,4 +1,5 @@
 name=Assembly Vale
+description=Build conveyor routes and refining machines to fulfill factory contracts within a limited number of ticks.
 launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=server.js
