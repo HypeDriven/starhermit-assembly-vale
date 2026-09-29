@@ -356,3 +356,7 @@ QA bar (agents/qa.md) as checkable statements:
 - Lesson step tracking driven by rules events, with the current step highlighted in the info panel.
 - Star display on the Journey list and a `star` sound on the results screen.
 - Settings screen sections for the remaining persisted options (captions, sim speed, large text, high contrast, left-handed layout, reduced motion); only Graphics exists today.
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
