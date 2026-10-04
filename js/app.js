@@ -161,13 +161,65 @@ function sfx(name) { try { AudioMod.play(name); } catch (e) { /* audio is option
 // =====================================================================
 
 // Account + cloud-sync status line for the title screen footer.
+var signedOutNotice = false;
 function accountText() {
-  if (!Platform.hosted) return 'Offline — progress is stored on this device.';
+  if (!Platform.hosted) return tr(signedOutNotice ? 'sh.signedOut' : 'sh.offline');
   var name = Platform.profile ? Platform.profile.displayName : '…';
-  var syncTxt = Platform.sync === 'synced' ? 'progress synced'
-    : Platform.sync === 'saving' ? 'saving…'
-    : 'cloud sync unavailable';
-  return 'Playing as ' + name + ' · ' + syncTxt;
+  var syncTxt = Platform.sync === 'synced' ? tr('sh.synced')
+    : Platform.sync === 'saving' ? tr('sh.saving')
+    : tr('sh.syncOff');
+  return tr('sh.playingAs', { name: name }) + ' · ' + syncTxt;
+}
+
+var toastTimer = 0;
+function showToast(text) {
+  var t = document.getElementById('toast');
+  if (!t) { t = h('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(t); }
+  t.textContent = text;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+}
+function copyInvite() {
+  var link = Platform.inviteLink();
+  if (!link) return;
+  var fail = function () { showToast(tr('sh.inviteFailed') + ' ' + link); };
+  try {
+    navigator.clipboard.writeText(link).then(function () { showToast(tr('sh.inviteCopied')); }, fail);
+  } catch (e) { fail(); }
+}
+// Sign-in (platform host without a token) and invite (signed in) buttons.
+function accountButtons(foot) {
+  if (Platform.canSignIn())
+    foot.appendChild(h('button', { class: 'btn', id: 'btn-sign-in', onclick: function () { Platform.signIn(); } }, [tr('sh.signIn')]));
+  if (Platform.hosted)
+    foot.appendChild(h('button', { class: 'btn', id: 'btn-invite', onclick: copyInvite }, [tr('sh.invite')]));
+}
+
+// Keyboard actions (declared as control.* in starhermit.txt); signed-in
+// players' platform overrides replace these codes.
+var DEFAULT_BINDINGS = {
+  left: ['ArrowLeft'], right: ['ArrowRight'], up: ['ArrowUp'], down: ['ArrowDown'],
+  build: ['Enter', 'NumpadEnter'], tick: ['Space'], auto: ['KeyA'], belt: ['KeyB'], machine: ['KeyM'],
+  rotate: ['KeyR'], remove: ['KeyX'], upgrade: ['KeyU'], hint: ['KeyH'], undo: ['KeyZ'], pause: ['KeyP', 'Escape']
+};
+var bindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+function actionFor(code) {
+  for (var a in bindings) if (bindings[a].indexOf(code) >= 0) return a;
+  return null;
+}
+function keyName(code) {
+  var named = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Escape: 'Esc', NumpadEnter: 'Num Enter' };
+  if (named[code]) return named[code];
+  return String(code).replace(/^Key/, '').replace(/^Digit/, '');
+}
+function keysOf(action) { return bindings[action].map(keyName).join('/'); }
+function keysLine() {
+  return 'Keys: ' + keysOf('left') + ' ' + keysOf('right') + ' ' + keysOf('up') + ' ' + keysOf('down') + ' move · ' +
+    keysOf('build') + ' builds · ' + keysOf('tick') + ' runs a tick · ' + keysOf('auto') + ' auto-run · ' +
+    keysOf('belt') + ' belt · ' + keysOf('machine') + ' machine · ' + keysOf('rotate') + ' rotate · ' +
+    keysOf('remove') + ' remove · ' + keysOf('upgrade') + ' upgrade · ' + keysOf('hint') + ' hint · ' +
+    keysOf('undo') + ' undo · ' + keysOf('pause') + ' pause · Esc back.';
 }
 
 function renderTitle(root) {
@@ -198,6 +250,7 @@ function renderTitle(root) {
     h('small',null,['Original. No real-money wagering, no ads, no energy pressure.'])
   ]);
   foot.appendChild(settingsButton('btn'));
+  accountButtons(foot);
   root.appendChild(foot);
 }
 
@@ -328,8 +381,8 @@ function renderHelp(root) {
     h('li',null,['Belts and machines send goods out of the side they face — use Rotate to turn them.']),
     h('li',null,['Every build, rotate, removal and upgrade costs one tick, just like running the simulation.']),
     h('li',null,['Removing a building refunds half its cost; anything it was carrying is lost.']),
-    h('li',null,['Practice and lesson rounds allow Undo (Z).']),
-    h('li',null,['Keys: arrows move · Enter builds · Space runs a tick · A auto-run · B belt · M machine · R rotate · X remove · U upgrade · H hint · Z undo · P pause · Esc back.'])
+    h('li',null,['Practice and lesson rounds allow Undo (' + keysOf('undo') + ').']),
+    h('li',null,[keysLine()])
   ]);
   root.appendChild(list);
   root.appendChild(art('./assets/help-line.webp', 'illus'));
@@ -1072,42 +1125,43 @@ function render() {
 // ---------- keyboard ----------
 function onKeyDown(ev) {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
-  var key = ev.key;
+  var act = actionFor(ev.code);
+  var back = ev.code === 'Escape';
   var onButton = ev.target && ev.target.tagName === 'BUTTON';
 
   if (screen==='paused') {
-    if (key==='Escape' || key==='p' || key==='P') { ev.preventDefault(); setScreen('play'); }
+    if (back || act==='pause') { ev.preventDefault(); setScreen('play'); }
     return;
   }
   if (screen==='settings') {
-    if (key==='Escape') { ev.preventDefault(); closeSettings(); }
+    if (back) { ev.preventDefault(); closeSettings(); }
     return;
   }
   if (screen==='help') {
-    if (key==='Escape') { ev.preventDefault(); setScreen(state && !state.terminal ? 'play' : 'title'); }
+    if (back) { ev.preventDefault(); setScreen(state && !state.terminal ? 'play' : 'title'); }
     return;
   }
   if (screen!=='play') {
-    if (key==='Escape' && screen!=='title') { ev.preventDefault(); setScreen('title'); }
+    if (back && screen!=='title') { ev.preventDefault(); setScreen('title'); }
     return;
   }
 
-  if (key==='ArrowLeft') { ev.preventDefault(); moveSelection(-1,0); return; }
-  if (key==='ArrowRight') { ev.preventDefault(); moveSelection(1,0); return; }
-  if (key==='ArrowUp') { ev.preventDefault(); moveSelection(0,-1); return; }
-  if (key==='ArrowDown') { ev.preventDefault(); moveSelection(0,1); return; }
-  if (key==='Enter' && !onButton) { ev.preventDefault(); applyToolAt(selectedCell.x, selectedCell.y); return; }
-  if (key===' ' && !onButton) { ev.preventDefault(); doTick(); return; }
-  switch (key) {
-    case 'b': case 'B': ev.preventDefault(); setTool(TOOL_BELT); break;
-    case 'm': case 'M': ev.preventDefault(); setTool(TOOL_MACHINE); break;
-    case 'r': case 'R': ev.preventDefault(); setTool(TOOL_ROTATE); break;
-    case 'x': case 'X': ev.preventDefault(); setTool(TOOL_REMOVE); break;
-    case 'u': case 'U': ev.preventDefault(); setTool(TOOL_UPGRADE); break;
-    case 'h': case 'H': ev.preventDefault(); showHint(); break;
-    case 'z': case 'Z': ev.preventDefault(); undo(); break;
-    case 'a': case 'A': ev.preventDefault(); toggleAuto(); break;
-    case 'p': case 'P': case 'Escape': ev.preventDefault(); setScreen('paused'); break;
+  if (act==='left') { ev.preventDefault(); moveSelection(-1,0); return; }
+  if (act==='right') { ev.preventDefault(); moveSelection(1,0); return; }
+  if (act==='up') { ev.preventDefault(); moveSelection(0,-1); return; }
+  if (act==='down') { ev.preventDefault(); moveSelection(0,1); return; }
+  if (act==='build' && !onButton) { ev.preventDefault(); applyToolAt(selectedCell.x, selectedCell.y); return; }
+  if (act==='tick' && !onButton) { ev.preventDefault(); doTick(); return; }
+  switch (act) {
+    case 'belt': ev.preventDefault(); setTool(TOOL_BELT); break;
+    case 'machine': ev.preventDefault(); setTool(TOOL_MACHINE); break;
+    case 'rotate': ev.preventDefault(); setTool(TOOL_ROTATE); break;
+    case 'remove': ev.preventDefault(); setTool(TOOL_REMOVE); break;
+    case 'upgrade': ev.preventDefault(); setTool(TOOL_UPGRADE); break;
+    case 'hint': ev.preventDefault(); showHint(); break;
+    case 'undo': ev.preventDefault(); undo(); break;
+    case 'auto': ev.preventDefault(); toggleAuto(); break;
+    case 'pause': ev.preventDefault(); setScreen('paused'); break;
     default: break;
   }
 }
@@ -1130,10 +1184,16 @@ async function init() {
   try {
     var remoteRaw = await Platform.init({
       onProfile: function () { if (screen === 'title') render(); },
-      onSync: function () { if (screen === 'title') render(); }
+      onSync: function () { if (screen === 'title') render(); },
+      onAuth: function (a) { if (!a.signedIn) signedOutNotice = true; if (screen === 'title') render(); }
     });
+    if (Platform.hosted) bindings = await Platform.loadBindings(DEFAULT_BINDINGS);
     var remoteDoc = remoteRaw ? Store.loadRaw(remoteRaw) : null;
-    if (remoteDoc) {
+    var ps = Platform.platformSettings;
+    if (remoteDoc || ps) {
+      if (!remoteDoc) remoteDoc = Store.load();
+      // platform settings KV wins over the saved document's preferences
+      if (ps) Object.keys(Store.DEFAULT_SETTINGS).forEach(function (k) { if (k in ps) remoteDoc.settings[k] = ps[k]; });
       Store.save(remoteDoc); // local cache mirrors the remote doc
       settings = loadSettings();
       applyGraphics();

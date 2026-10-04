@@ -24,7 +24,8 @@ File map:
 | `js/rules.js` | Pure deterministic rules engine: `createGame`, `applyCommand`, `simulate`, legality checks, `hint`, hashing, serialization. UMD (`window.AVRules`). |
 | `js/content.js` | Versioned data: goods, recipes, five themes, twelve ASCII layouts, 40 Journey stages, 5 lessons, 5 challenges, 3 practice presets, Score Chase, daily generator, `validateStage`. UMD (`window.AVContent`). |
 | `js/store.js` | Save document (settings + progress) with FNV-1a checksum, migration, memory fallback; local leaderboard helpers; `loadRaw` parses a wrapped save string (local cache + cloud mirror). |
-| `js/platform.js` | StarHermit host adapter (UMD, `window.AVPlatform`): fragment launch-token read/strip, `sub`+`game_scope` decode, Bearer auth, 45-min launch-token refresh, profile nickname, cloud-save mirror (zip+base64) with sync status. No-op without a token. |
+| `starhermit-sdk.js` | Canonical StarHermit client (verbatim copy, `window.StarHermit`). |
+| `js/platform.js` | StarHermit host adapter (UMD, `window.AVPlatform`) over the SDK: launch token, nickname, cloud-save and settings mirror, sign-in, invite link, control bindings. No-op without a token. |
 | `js/audio.js` | Buses (music, effects, ambience, voice), 18 synthesized events, clip loader for `sfx/*.opus`, valley ambience, factory hum, generative pad. |
 | `js/gfx.js` | Pure graphics quality model (UMD, `window.AVGfx`): presets, categories, `detectPreset`, `resolve`, `presetTier`, `choosePreset`, `setOverride`, `cost`, `describe`, `adaptStep`. |
 | `js/board.js` | Board renderer (`window.AVBoard`): backing-store sizing, cached terrain layer, pieces, shadows, glow, grade, particles, gliding goods, frame loop, adaptive resolution, FPS sampling. |
@@ -34,6 +35,7 @@ File map:
 | `server.js` | Optional Node static server plus `GET /api/v1/time`. Declared in `starhermit.txt` as `server=server.js`. |
 | `tests/rules.test.mjs` | 10 rules/content checks (`npm run test:rules`). |
 | `tests/gfx.test.mjs` | Graphics model + locale table checks (`npm run test:gfx`, `node --test`). |
+| `tests/platform.test.mjs` | StarHermit adapter checks (also in `npm run test:gfx`): no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; control overrides; sign-out on refused renewal; `sh.*` strings in all locales. |
 | `tests/e2e.mjs` | Playwright playthrough at 1280×800 and 390×844 + shipped-server check (`npm run test:e2e`). |
 | `sfx/manifest.txt` | Canonical SFX table (file, event id, sound, usage). `manifest.json` is the runtime/generator list of clips on disk, `manifest.md` is the human table. |
 | `assets/` | Key art and illustrations (`keyart.webp`, `exchange-ledger.webp`, `help-line.webp`). |
@@ -291,9 +293,17 @@ Packaging follows the wiki conventions (https://wiki.starhermit.com/): `starherm
 Used today:
 
 - **Server script**: `server.js` serves the static distribution, refuses paths outside the root, answers `GET /api/v1/time` with `{time}` (ms). It has no game logic and holds no state.
-- **Host adapter** `js/platform.js`: reads `#game_token=<jwt>` from the URL fragment (query fallbacks for local dev, stripped after read), decodes `sub` + `game_scope` (slug never hard-coded), sends `Authorization: Bearer`, re-mints the token every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry on failure), fetches the display name from `GET /api/v1/users/{sub}/profile` (nickname, fallback `Player ` + id8; never `/api/v1/me`, never usernames), and mirrors the save document to the cloud slot `GET/PUT /api/v1/me/cloud-saves/{slug}` (stored-zip + base64, one slot). Remote save wins on load; localStorage stays the offline cache; saves debounce 2 s and flush on `pagehide`/hidden. Without a token every call is a no-op and play is unchanged. The title footer shows the account line (nickname + sync status).
+- **SDK**: `starhermit-sdk.js` (verbatim copy of the canonical StarHermit client) loads before every game script. `js/platform.js` (`window.AVPlatform`) calls `StarHermit.init()` as soon as it loads and wraps the SDK behind the adapter API (`init`, `onLocalSave`, `flushCloud`, `hosted`, `profile`, `sync`, `platformSettings`, `canSignIn`, `signIn`, `inviteLink`, `loadBindings`). Without a token nothing is requested and play is unchanged.
+- **Launch and renewal**: the SDK reads `#game_token=<jwt>[&session_id=]` or a sign-in return `#access_token=…`, strips it from the URL, takes the slug from `game_scope` (never hard-coded), sends `Authorization: Bearer` and renews via `POST /api/v1/games/{slug}/launch-token`. If renewal is refused the footer reads "Signed out of StarHermit — progress stays on this device." and play continues locally.
+- **Sign-in**: on `*.starhermit.com` without a token the title footer shows **Sign in with StarHermit** (`StarHermit.signIn()`); hidden when signed in and when running locally.
+- **Identity**: the title footer account line shows "Playing as <nickname> · <sync status>" from `GET /api/v1/users/{sub}/profile` (fallback `Player ` + id prefix; never `/api/v1/me`).
+- **Cloud save**: the save document mirrors to `/api/v1/me/cloud-saves/game:{slug}` (zip + base64 via the SDK). The remote copy is read first and wins; localStorage stays the offline cache; each local save queues a debounced (2 s) upload, and `pagehide`/hidden flushes it with `keepalive`.
+- **Settings KV**: changed keys of the saved settings (volumes, mute, captions, graphics preset and overrides, reduced motion and the other accessibility flags) go to `PATCH /api/v1/games/{slug}/settings`; on start the platform's values override the save document's.
+- **Invite**: when signed in the title footer shows **Invite a friend**, which copies `StarHermit.inviteLink()` to the clipboard and confirms with a toast (the link itself is shown if the clipboard is blocked).
+- **Controls**: `starhermit.txt` declares 15 `control.*` actions (`left`, `right`, `up`, `down`, `build`, `tick`, `auto`, `belt`, `machine`, `rotate`, `remove`, `upgrade`, `hint`, `undo`, `pause`). Keydown routes by `event.code` through `StarHermit.loadBindings` (defaults standalone); the How to play keys line shows the effective bindings. Escape always goes back/closes in addition to the `pause` binding.
+- **Strings**: the sign-in, invite, toast and account-line texts exist in all nine locales (`sh.*` keys in `js/i18n.js`).
 
-Not used: presence heartbeats, achievements, leaderboards (the `store.js` board helpers and tie-break order exist but `app.js` never calls them), sessions/matchmaking, replays upload, chat, voice, relay. Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
+Not used: `server.js` is a static server with no platform game script, so there are no sessions, matchmaking, session invites, chat, replays, server achievements or leaderboards (the `store.js` board helpers exist but nothing reads them); no avatar (no player chip). Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
 
 ## 13. Technical architecture
 
