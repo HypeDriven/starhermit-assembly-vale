@@ -79,6 +79,8 @@
       ro = new root.ResizeObserver(function () { if (sizeCanvas()) draw(); kick(); });
       ro.observe(canvas);
     }
+    // A zoom change keeps the layout width but changes the displayed size.
+    var offScale = root.UIScale ? root.UIScale.on(function () { if (sizeCanvas()) draw(); kick(); }) : null;
 
     // ---------- sizing ----------
     // Backing store = CSS width × min(dpr, 2) × preset scale × adaptive scale;
@@ -93,7 +95,9 @@
       canvas.style.setProperty('--board-ar-num', String(cols / rows));
       var cssW = canvas.clientWidth || st.lw;
       st.cssW = cssW;
-      var dpr = Math.min(root.devicePixelRatio || 1, 2);
+      // The canvas sits inside the zoomed UI (--ui-scale), so the backing store
+      // also multiplies by the zoom to stay crisp on large screens.
+      var dpr = Math.min(root.devicePixelRatio || 1, 2) * ((root.UIScale && root.UIScale.value) || 1);
       var pr = dpr * cfg.scale * (cfg.adaptive ? shared.adaptive : 1);
       var bw = Math.max(cols, Math.min(4096, Math.round(cssW * pr)));
       var bh = Math.max(rows, Math.round(bw * rows / cols));
@@ -696,6 +700,7 @@
       if (st.raf) root.cancelAnimationFrame(st.raf);
       st.raf = 0;
       if (ro) ro.disconnect();
+      if (offScale) offScale();
       if (root.document) root.document.removeEventListener('visibilitychange', onVis);
     }
 

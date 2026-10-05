@@ -26,12 +26,15 @@ body {
   box-sizing: border-box;
   max-width: 1180px;
   margin: 0 auto;
+  /* Large screens: the whole UI zooms by --ui-scale (ui-scale.js, 1 up to 1600×1000);
+     vw/vh inside zoomed elements are divided by it. */
+  zoom: var(--ui-scale, 1);
   padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
            max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
-h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 0.4em 0 0.2em; letter-spacing: 0.01em; }
-h2 { font-size: clamp(1.2rem, 3.2vw, 1.6rem); margin: 0.2em 0; }
+h1 { font-size: clamp(1.8rem, calc(5vw / var(--ui-scale, 1)), 2.6rem); margin: 0.4em 0 0.2em; letter-spacing: 0.01em; }
+h2 { font-size: clamp(1.2rem, calc(3.2vw / var(--ui-scale, 1)), 1.6rem); margin: 0.2em 0; }
 p { color: var(--ink-dim); max-width: 62ch; }
 
 /* ---------- buttons ---------- */
@@ -131,6 +134,11 @@ canvas#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2
 .foot small { color: var(--ink-dim); flex: 1 1 240px; }
 .status { flex: 1 1 100%; color: var(--accent); min-height: 1.4em; }
 
+/* Large screens (ui-scaled, i.e. above 1600×1000): the play screen widens and
+   gives the extra width to the board so it fills more of the screen height. */
+html.ui-scaled #root:has(.canvas-wrap) { max-width: 1500px; }
+html.ui-scaled .canvas-wrap { flex-grow: 4; }
+
 @media (max-width: 720px) {
   .body { flex-direction: column; }
   /* flex-basis is a height once the axis is vertical — never reserve one */
@@ -163,6 +171,7 @@ canvas#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2
 .gfx-summary { color: var(--ink-dim); font-size: 0.9rem; font-variant-numeric: tabular-nums; margin: 12px 0 0; overflow-wrap: anywhere; max-width: none; }
 .gfx-note { color: var(--bad); font-size: 0.9rem; margin: 6px 0 0; }
 #gfx-fps-readout {
+  zoom: var(--ui-scale, 1);
   position: fixed; top: max(6px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 5;
   pointer-events: none; background: #000a; color: var(--accent); border-radius: 6px; padding: 2px 8px;
   font: 12px/1.4 ui-monospace, monospace; font-variant-numeric: tabular-nums;
@@ -185,10 +194,10 @@ canvas#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2
   .head h2 { font-size: 1.1rem; }
   .head .btn { min-height: 38px; padding: 6px 12px; }
   .body { flex-wrap: nowrap; gap: 10px; }
-  .col { flex: 0 0 200px; min-width: 0; max-height: calc(100vh - 80px); overflow-y: auto; }
+  .col { flex: 0 0 200px; min-width: 0; max-height: calc(100vh / var(--ui-scale, 1) - 80px); overflow-y: auto; }
   .canvas-wrap { flex: 1 1 auto; min-width: 0; }
   /* width from the available height, never from the backing-store size */
-  canvas#board { width: min(100%, calc((100vh - 110px) * (var(--board-ar-num, 1.5)))); margin: 0 auto; }
+  canvas#board { width: min(100%, calc((100vh / var(--ui-scale, 1) - 110px) * (var(--board-ar-num, 1.5)))); margin: 0 auto; }
   .legend { display: none; }
   .panel { padding: 8px; margin-bottom: 8px; }
   .tool, .actions-col .act { min-height: 40px; padding: 6px 10px; font-size: 0.92rem; margin-bottom: 6px; }
@@ -196,7 +205,7 @@ canvas#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2
 }
 
 /* StarHermit invite confirmation */
-.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50;
-  max-width: calc(100vw - 32px); padding: 10px 16px; background: var(--bg-panel-2); color: var(--ink, #eee);
+.toast { zoom: var(--ui-scale, 1); position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50;
+  max-width: calc(100vw / var(--ui-scale, 1) - 32px); padding: 10px 16px; background: var(--bg-panel-2); color: var(--ink, #eee);
   border: 1px solid var(--accent, #7fd4c1); border-radius: 8px; font-size: .95rem; text-align: center; overflow-wrap: anywhere; }
 .toast[hidden] { display: none; }

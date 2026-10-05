@@ -191,7 +191,8 @@ async function runPass(passName, contextOpts) {
     await step('keyboard: tools, tick and pause', async () => {
       await btn('Score Chase').click();
       await page.waitForSelector('canvas#board');
-      await page.locator('canvas#board').click({ position: { x: 5, y: 5 } });
+      // Inside the first cell but clear of the rounded corner (the radius grows with --ui-scale).
+      await page.locator('canvas#board').click({ position: { x: 16, y: 16 } });
       await page.keyboard.press('Space');
       let head = await page.textContent('#root .head');
       if (!head.includes('Tick: 1')) throw new Error(`Space should run a tick: ${head}`);
