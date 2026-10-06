@@ -1103,12 +1103,16 @@ function startRound(cfg, kind) {
   setScreen('play');
 }
 
+var lastRenderedScreen = null;
 function render() {
   var root = el.root; clearNode(root);
   el.gold = el.tick = el.info = el.tools = el.hint = el.status = el.autoBtn = null;
   el.boardCanvas = null;
   if (boardView) { boardView.destroy(); boardView = null; }
   stopPreview();
+  // A new screen starts at the top: the page keeps its scroll position otherwise
+  // (e.g. Settings opened from a title scrolled to reach its button).
+  if (screen !== lastRenderedScreen) { lastRenderedScreen = screen; window.scrollTo(0, 0); }
   if (screen==='title') renderTitle(root);
   else if (screen==='mode-select') renderModeSelect(root);
   else if (screen==='journey-select') renderJourneySelect(root);
