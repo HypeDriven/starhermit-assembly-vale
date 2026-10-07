@@ -32,7 +32,8 @@ File map:
 | `js/i18n.js` | Locale table (`window.AVI18n`) for the Settings/Graphics panel in the nine target locales; `pick(navigator.languages)`. |
 | `js/app.js` | Screens (including Settings), input, hints, undo, auto-run, progress recording. All other UI strings live here. |
 | `css/style.css` | Palette tokens, buttons, play layout, mobile breakpoint, reduced-motion rule. |
-| `server.js` | Optional Node static server plus `GET /api/v1/time`. Declared in `starhermit.txt` as `server=server.js`. |
+| `score-script.js` | StarHermit platform script (`server=` in `starhermit.txt`): range-checks a finished round's score and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`). |
+| `server.js` | Local dev server: static files plus `GET /api/v1/time`. Not shipped as the platform script. |
 | `tests/rules.test.mjs` | 10 rules/content checks (`npm run test:rules`). |
 | `tests/gfx.test.mjs` | Graphics model + locale table checks (`npm run test:gfx`, `node --test`). |
 | `tests/platform.test.mjs` | StarHermit adapter checks (also in `npm run test:gfx`): no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; control overrides; sign-out on refused renewal; `sh.*` strings in all locales. |
@@ -40,7 +41,7 @@ File map:
 | `sfx/manifest.txt` | Canonical SFX table (file, event id, sound, usage). `manifest.json` is the runtime/generator list of clips on disk, `manifest.md` is the human table. |
 | `assets/` | Key art and illustrations (`keyart.webp`, `exchange-ledger.webp`, `help-line.webp`). |
 | `coverart.png`, `icon.png`, `favicon.svg` | Store cover (1200×675), 256 px icon, tab icon. |
-| `starhermit.txt` | `name=Assembly Vale`, `launch=index.html`, `owner=…`, `server=server.js`, `cover=coverart.png`. |
+| `starhermit.txt` | `name=Assembly Vale`, `launch=index.html`, `owner=…`, `server=score-script.js`, `cover=coverart.png`. |
 | `LICENSE.md` | PolyForm Noncommercial 1.0.0. |
 
 ## 2. Vision and design pillars
@@ -289,11 +290,12 @@ Shipped language: English, except the Settings/Graphics panel, which is localize
 
 ## 12. StarHermit integration
 
-Packaging follows the wiki conventions (https://wiki.starhermit.com/): `starhermit.txt` at the distribution root with `name`, `launch=index.html`, `owner`, `server=server.js`, `cover=coverart.png`; everything beside it is uploaded.
+Packaging follows the wiki conventions (https://wiki.starhermit.com/): `starhermit.txt` at the distribution root with `name`, `launch=index.html`, `owner`, `server=score-script.js`, `cover=coverart.png`; everything beside it is uploaded.
 
 Used today:
 
-- **Server script**: `server.js` serves the static distribution, refuses paths outside the root, answers `GET /api/v1/time` with `{time}` (ms). It has no game logic and holds no state.
+- **Platform script**: `score-script.js` accepts a `{type:'result', scores}` message on a practice session, range-checks each score against its board and returns it as the session's `scores`. `server.js` is only the local dev server (static files, refuses paths outside the root, `GET /api/v1/time`).
+- **Leaderboard**: when signed in, every finished round except lessons posts its score total through `StarHermit.submitScores` (`AVPlatform.submitScore`) to the `high-score` board (integer, higher is better, 0–100,000), and the results screen shows "Leaderboard rank: #N" (or "Score posted…" / "Score not posted…"). Standalone play posts nothing and shows no line.
 - **SDK**: `starhermit-sdk.js` (verbatim copy of the canonical StarHermit client) loads before every game script. `js/platform.js` (`window.AVPlatform`) calls `StarHermit.init()` as soon as it loads and wraps the SDK behind the adapter API (`init`, `onLocalSave`, `flushCloud`, `hosted`, `profile`, `sync`, `platformSettings`, `canSignIn`, `signIn`, `inviteLink`, `loadBindings`). Without a token nothing is requested and play is unchanged.
 - **Launch and renewal**: the SDK reads `#game_token=<jwt>[&session_id=]` or a sign-in return `#access_token=…`, strips it from the URL, takes the slug from `game_scope` (never hard-coded), sends `Authorization: Bearer` and renews via `POST /api/v1/games/{slug}/launch-token`. If renewal is refused the footer reads "Signed out of StarHermit — progress stays on this device." and play continues locally.
 - **Sign-in**: on `*.starhermit.com` without a token the title footer shows **Sign in with StarHermit** (`StarHermit.signIn()`); hidden when signed in and when running locally.
@@ -302,9 +304,9 @@ Used today:
 - **Settings KV**: changed keys of the saved settings (volumes, mute, captions, graphics preset and overrides, reduced motion and the other accessibility flags) go to `PATCH /api/v1/games/{slug}/settings`; on start the platform's values override the save document's.
 - **Invite**: when signed in the title footer shows **Invite a friend**, which copies `StarHermit.inviteLink()` to the clipboard and confirms with a toast (the link itself is shown if the clipboard is blocked).
 - **Controls**: `starhermit.txt` declares 15 `control.*` actions (`left`, `right`, `up`, `down`, `build`, `tick`, `auto`, `belt`, `machine`, `rotate`, `remove`, `upgrade`, `hint`, `undo`, `pause`). Keydown routes by `event.code` through `StarHermit.loadBindings` (defaults standalone); the How to play keys line shows the effective bindings. Escape always goes back/closes in addition to the `pause` binding.
-- **Strings**: the sign-in, invite, toast and account-line texts exist in all nine locales (`sh.*` keys in `js/i18n.js`).
+- **Strings**: the sign-in, invite, toast, account-line and leaderboard-line texts exist in all nine locales (`sh.*` keys in `js/i18n.js`).
 
-Not used: `server.js` is a static server with no platform game script, so there are no sessions, matchmaking, session invites, chat, replays, server achievements or leaderboards (the `store.js` board helpers exist but nothing reads them); no avatar (no player chip). Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
+Not used: matchmaking, session invites, chat, replays, server achievements, per-mode leaderboards (the `store.js` board helpers exist but nothing reads them); no avatar (no player chip). Multiplayer is out of scope for this ruleset. The daily uses the client clock rather than `/api/v1/time`.
 
 ## 13. Technical architecture
 
@@ -362,7 +364,7 @@ QA bar (agents/qa.md) as checkable statements:
 ## Design intent not yet implemented
 
 - Localization table with en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, chosen from the platform profile or `navigator.language`, with a language switch on the title.
-- StarHermit leaderboards for Daily and Score Chase (entries carry ruleset version, seed, score components, tick count) and a small achievement set (first win, first upgrade, all lessons, a mastery stage, 100 goods sold), using `store.js sortEntries` ordering for ties.
+- Separate StarHermit leaderboards for Daily and Score Chase (entries carry ruleset version, seed, score components, tick count) and a small achievement set (first win, first upgrade, all lessons, a mastery stage, 100 goods sold), using `store.js sortEntries` ordering for ties.
 - Daily date from `/api/v1/time` with round-trip offset.
 - Lesson step tracking driven by rules events, with the current step highlighted in the info panel.
 - Star display on the Journey list and a `star` sound on the results screen.

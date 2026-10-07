@@ -580,6 +580,7 @@ function renderResults(root) {
     h('li',null,['Ticks used: ' + state.tick + (state.cfg.tickLimit ? (' / ' + state.cfg.tickLimit) : '')])
   ]);
   root.appendChild(list);
+  if (lbStatus) root.appendChild(h('p', { id: 'results-lb', role: 'status' }, [lbText()]));
   root.appendChild(art('./assets/exchange-ledger.webp', 'illus' + (won ? ' won' : ' lost')));
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
@@ -970,6 +971,7 @@ function afterStateChange() {
   if (state.terminal) {
     setAuto(false);
     recordResult();
+    postToLeaderboard();
     setScreen('results');
     return;
   }
@@ -1052,6 +1054,30 @@ function recordResult() {
   saveProgress(prog);
 }
 
+// Hosted play only: post the finished round's total (lessons excluded) and
+// show the board rank on the results screen. Standalone posts nothing.
+var lbStatus = null, lbSeq = 0; // null | 'posting' | { posted, rank }
+function lbText() {
+  if (lbStatus === 'posting') return tr('sh.lbPosting');
+  if (!lbStatus.posted) return tr('sh.lbNotPosted');
+  return lbStatus.rank ? tr('sh.lbRank', { rank: lbStatus.rank }) : tr('sh.lbPosted');
+}
+function showLbLine() {
+  var line = document.getElementById('results-lb');
+  if (line && lbStatus) line.textContent = lbText();
+}
+function postToLeaderboard() {
+  var seq = ++lbSeq;
+  lbStatus = null;
+  if (!Platform.hosted || sessionKind() === 'learn') return;
+  lbStatus = 'posting';
+  Platform.submitScore(state.score.total).then(function (r) {
+    if (seq !== lbSeq) return;
+    lbStatus = r;
+    showLbLine();
+  });
+}
+
 // One star for the win, one for beating par ticks, one for spare gold.
 function starsFor() {
   var stars = 1;
@@ -1081,6 +1107,7 @@ function leaveRound() {
 
 function startRound(cfg, kind) {
   setAuto(false);
+  lbSeq++; lbStatus = null;
   sessionCfg = cfg;
   state = Rules.createGame(cfg);
   history = [];

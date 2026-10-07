@@ -123,7 +123,7 @@ test('account strings exist in every required locale', async () => {
   const { createRequire } = await import('node:module');
   const I18n = createRequire(import.meta.url)('../js/i18n.js');
   const keys = Object.keys(I18n.STRINGS['en-GB']).filter(k => k.startsWith('sh.'));
-  assert.equal(keys.length, 10);
+  assert.equal(keys.length, 14);
   for (const loc of I18n.LOCALES)
     for (const k of keys) assert.ok(I18n.STRINGS[loc][k], loc + '.' + k);
 });
