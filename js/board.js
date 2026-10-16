@@ -559,7 +559,7 @@
             ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, cs * 0.03);
             ctx.strokeRect(x * cs + cs * 0.2, y * cs + cs * 0.2, cs * 0.6, cs * 0.6);
           }
-          label(meta.name.charAt(0), cx, cy - cs * 0.05, '#1b1b1b', Math.round(cs * 0.3));
+          label((opts.goodName ? opts.goodName(cell.item) : meta.name).charAt(0), cx, cy - cs * 0.05, '#1b1b1b', Math.round(cs * 0.3));
           arrow(cx, cy + cs * 0.28, cell.dir, cs * 0.14, '#f4f4f4', Math.max(2, cs * 0.06));
         }
       }
@@ -591,7 +591,7 @@
           ctx.fillStyle = '#ffd166';
           ctx.fillRect(mx + cs * 0.16, my + cs * 0.8, cs * 0.68 * fr, cs * 0.05);
         }
-        label(rec ? rec.name.charAt(0) : '?', mcx, mcy - cs * 0.06, '#ffffff', null, true);
+        label(rec ? (opts.recipeName ? opts.recipeName(rec) : rec.name).charAt(0) : '?', mcx, mcy - cs * 0.06, '#ffffff', null, true);
         label('L' + m.level, mcx, mcy + cs * 0.26, '#ded3ea', Math.round(cs * 0.2));
         var dv = Rules.DIRS[m.dir] || [1, 0];
         arrow(mcx + dv[0] * cs * 0.3, mcy + dv[1] * cs * 0.3, m.dir, cs * 0.1, '#ffd166', 2);

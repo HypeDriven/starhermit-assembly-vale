@@ -13,6 +13,7 @@
  * requires the contract to complete and the results screen to appear.
  */
 import { chromium } from 'playwright-core';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -358,6 +359,49 @@ async function runPass(passName, contextOpts) {
       await btn('Title').click();
       await page.waitForSelector('#root h1');
     });
+
+    await step('Language: Automatic follows the StarHermit preferred language; Settings → Language re-renders a running round live and saves ui.language; report a problem', async () => {
+      const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+      await page.goto('about:blank');
+      await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+      await btn('Jouer').waitFor();
+      await btn('Course aux points').click();
+      await page.waitForSelector('canvas#board');
+      await btn('Jouer un tour (Espace)').click();
+      await btn('Jouer un tour (Espace)').click();
+      const ticks = Number((await page.textContent('#root .head')).match(/Tour : (\d+)/)[1]);
+      await page.click('#open-settings-play');
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.scrollIntoViewIfNeeded();
+      const autoLabel = await choice.locator('option').first().textContent();
+      if (!/^Automatique — Français \(Canada\)$/.test(autoLabel)) throw new Error('Automatic label not resolved: ' + autoLabel);
+      await choice.selectOption('it-IT');
+      await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+      await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+      if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+      if ((await page.textContent('#settings-title')) !== 'Impostazioni') throw new Error('settings title not re-rendered');
+      if ((await page.textContent('#gfx-heading')) !== 'Grafica') throw new Error('Graphics heading not re-rendered');
+      if ((await page.inputValue('[data-game-language="choice"]')) !== 'it-IT') throw new Error('language select lost its value');
+      await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+      await page.fill('[data-game-report="title"]', 'Test report');
+      await page.click('[data-game-report="send"]');
+      await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+      if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+      await page.screenshot({ path: SHOT('language', passName) });
+      await page.click('#settings-back');
+      await page.waitForSelector('canvas#board');
+      const head = await page.textContent('#root .head');
+      if (!head.includes('Caccia al punteggio') || !head.includes('Turno: ' + ticks)) throw new Error('round not kept or HUD not localized: ' + head);
+      if (!(await btn('Esegui un turno (Spazio)').isVisible())) throw new Error('action buttons not localized');
+      await page.click('#open-settings-play');
+      await page.locator('[data-game-language="choice"]').selectOption('auto');
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+      await page.click('#settings-back');
+      await btn('Accueil').click();
+      await page.waitForSelector('#root h1');
+      await page.unroute(/\/api\/v1\//);
+    });
   } finally {
     await context.close();
   }
@@ -405,8 +449,8 @@ async function checkShippedServer() {
 }
 
 try {
-  await runPass('desktop', { viewport: { width: 1280, height: 800 } });
-  await runPass('mobile', { viewport: { width: 390, height: 844 }, hasTouch: true });
+  await runPass('desktop', { viewport: { width: 1280, height: 800 }, locale: 'en-US' });
+  await runPass('mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, locale: 'en-US' });
   await checkShippedServer();
   console.log('\nE2E PASS — both viewport passes clean, no page errors');
 } finally {

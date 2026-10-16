@@ -34,7 +34,12 @@ function boot({ hash = '' } = {}) {
     const u = decodeURIComponent(url);
     if (u.endsWith('/api/v1/users/' + USER + '/profile')) return Response.json({ nickname: 'Fletch' });
     if (u.endsWith('/cloud-saves/game:' + SLUG)) {
-      if (method === 'PUT') { cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return new Response(null, { status: 204 }); }
+      if (method === 'PUT') {
+        if (cloud.conflict) { cloud.conflict = false; return Response.json({ etag: '"other"' }, { status: 412 }); }
+        cloud.puts = (cloud.puts || 0) + 1;
+        cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64');
+        return Response.json({ etag: '"v' + cloud.puts + '"' });
+      }
       return cloud.bytes ? new Response(cloud.bytes) : new Response('', { status: 404 });
     }
     if (u.endsWith('/games/' + SLUG + '/settings')) {
@@ -47,9 +52,9 @@ function boot({ hash = '' } = {}) {
   ctx.self = ctx;
   ctx.window = ctx;
   vm.createContext(ctx);
-  for (const f of ['starhermit-sdk.js', 'js/platform.js'])
+  for (const f of ['starhermit-sdk.js', 'js/platform.js', 'js/store.js'])
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
-  return { ctx, calls, cloud, kv, P: ctx.AVPlatform, SH: ctx.StarHermit };
+  return { ctx, calls, cloud, kv, P: ctx.AVPlatform, SH: ctx.StarHermit, S: ctx.AVStore };
 }
 
 const wrap = doc => { const payload = JSON.stringify(doc); return JSON.stringify({ sum: 'x', payload }); };
@@ -126,4 +131,50 @@ test('account strings exist in every required locale', async () => {
   assert.equal(keys.length, 14);
   for (const loc of I18n.LOCALES)
     for (const k of keys) assert.ok(I18n.STRINGS[loc][k], loc + '.' + k);
+});
+
+test('save conflict: the cloud copy is reloaded and merged, keeping the better records', async () => {
+  const token = jwt({ sub: USER, game_scope: SLUG, exp: Math.floor(Date.now() / 1000) + 3600 });
+  const { P, SH, S, cloud } = boot({ hash: '#game_token=' + token });
+  const conflicts = [];
+  await P.init({ onConflict: raw => conflicts.push(raw) });
+  const mine = S.fresh(); mine.progress.journeyStars = { j01: 3 }; mine.progress.stats.rounds = 4; mine.progress.stats.lastDaily = '2026-10-01';
+  const theirs = S.fresh(); theirs.progress.journeyStars = { j01: 1, j02: 2 }; theirs.progress.scoreChaseBest = 900;
+  theirs.progress.stats.rounds = 7; theirs.progress.stats.lastDaily = '2026-10-15'; theirs.settings.music = 0;
+  const wrapDoc = d => { const payload = JSON.stringify(d); return JSON.stringify({ sum: S.checksum(payload), payload }); };
+  P.onLocalSave(wrapDoc(mine)); await P.flushCloud();
+  cloud.conflict = true;
+  P.onLocalSave(wrapDoc(mine));
+  const other = boot({ hash: '#game_token=' + token });
+  await other.P.init();
+  other.P.onLocalSave(wrapDoc(theirs)); await other.P.flushCloud();
+  cloud.bytes = other.cloud.bytes;
+  await P.flushCloud();
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(SH.saveConflicted(), false, 'reload clears the conflict');
+  assert.equal(conflicts.length, 1);
+  const merged = S.mergeDocs(S.loadRaw(conflicts[0]), mine);
+  assert.deepEqual(JSON.parse(JSON.stringify(merged.progress.journeyStars)), { j01: 3, j02: 2 });
+  assert.equal(merged.progress.scoreChaseBest, 900);
+  assert.equal(merged.progress.stats.rounds, 7);
+  assert.equal(merged.progress.stats.lastDaily, '2026-10-15');
+  assert.equal(merged.settings.music, mine.settings.music, 'local settings kept');
+});
+
+test('every player-facing string and content name exists in all nine locales', async () => {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const I18n = req('../js/i18n.js'), Content = req('../js/content.js');
+  assert.deepEqual(I18n.LOCALES, ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT']);
+  const keys = Object.keys(I18n.STRINGS['en-GB']);
+  for (const loc of I18n.LOCALES) {
+    const T = I18n.STRINGS[loc];
+    for (const k of keys) assert.ok(T[k], loc + '.' + k);
+    for (const st of Content.JOURNEY) assert.ok(T['j.' + st.id], loc + ' j.' + st.id);
+    for (const l of Content.LESSONS) assert.ok(T['lesson.' + l.id] && T['lessonx.' + l.id], loc + ' lesson ' + l.id);
+    for (const c of Content.CHALLENGES) assert.ok(T['ch.' + c.id] && T['chd.' + c.id], loc + ' ch ' + c.id);
+    for (const d of Object.keys(Content.PRACTICE)) assert.ok(T['pr.' + d] && T['prd.' + d], loc + ' pr ' + d);
+    for (const g of Object.keys(Content.GOOD_META)) assert.ok(T['good.' + g], loc + ' good ' + g);
+    for (const r of Content.RECIPES) assert.ok(T['rec.' + r.id], loc + ' rec ' + r.id);
+  }
 });

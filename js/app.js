@@ -34,8 +34,32 @@ var history = [];           // previous states, for undo where the mode allows i
 var statusText = '';        // live-region message
 
 // ---------- graphics (quality model in gfx.js, drawing in board.js) ----------
-var LOCALE = I18n.pick((navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language]);
+// ---------- language (strings in i18n.js, preference in sh-language.js) ----------
+// Settings → Language: explicit choice → StarHermit preferred language →
+// navigator.languages → en-US. A change re-renders the current screen in place.
+var LOCALE = 'en-US';
 var tr = I18n.make(LOCALE);
+function setLocale(locale) {
+  LOCALE = I18n.LOCALES.indexOf(locale) >= 0 ? locale : 'en-US';
+  tr = I18n.make(LOCALE);
+  document.documentElement.lang = LOCALE;
+  if (el && el.root) onLanguageChange();
+}
+var language = window.StarHermitLanguage ? window.StarHermitLanguage.create({
+  game: 'assembly-vale', supported: I18n.LOCALES, apply: setLocale
+}) : null;
+if (!language) setLocale(I18n.pick((navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language]));
+
+// Content keeps English data; names and texts are looked up by id.
+function recipeName(rec) { return rec ? tr('rec.' + rec.id) : tr('cell.machineGeneric'); }
+function journeyName(st) { return tr('j.' + st.id); }
+function lessonName(l) { return tr('lesson.' + l.id); }
+function lessonText(l) { return tr('lessonx.' + l.id); }
+function challengeLabel(c) { return tr('ch.' + c.id); }
+function challengeDesc(c) { return tr('chd.' + c.id); }
+function practiceLabel(d) { return tr('pr.' + d); }
+function practiceDesc(d) { return tr('prd.' + d); }
+function dirName(d) { return tr('dir.' + d); }
 var gpuName = detectGpu();
 var isMobile = detectMobile();
 var detectedPreset = Gfx.detectPreset(gpuName, { mobile: isMobile });
@@ -113,7 +137,10 @@ function makeBoardView(canvas, getState, getSelected) {
     shared: gfxShared,
     onFps: function (fps, ms) { updateFps(fps, ms); },
     onFail: function () { gfxFailed = true; refreshGfxSummary(); },
-    onResize: function () { refreshGfxSummary(); }
+    onResize: function () { refreshGfxSummary(); },
+    // localized initials drawn on sources and machines
+    goodName: function (id) { return goodName(id); },
+    recipeName: function (rec) { return recipeName(rec); }
   });
   boardView.setConfig(gfx);
   return boardView;
@@ -152,7 +179,8 @@ function art(src, cls) {
 }
 
 // ---------- audio lifecycle ----------
-function startAudio() { AudioMod.start(); AudioMod.applySettings(settings); AudioMod.setCaptions(!!settings.captions, setStatus); }
+function captionStatus(text) { setStatus(function () { return tr('cap.' + text); }); }
+function startAudio() { AudioMod.start(); AudioMod.applySettings(settings); AudioMod.setCaptions(!!settings.captions, captionStatus); }
 function stopAudio() { AudioMod.suspend(); }
 function sfx(name) { try { AudioMod.play(name); } catch (e) { /* audio is optional */ } }
 
@@ -215,39 +243,37 @@ function keyName(code) {
 }
 function keysOf(action) { return bindings[action].map(keyName).join('/'); }
 function keysLine() {
-  return 'Keys: ' + keysOf('left') + ' ' + keysOf('right') + ' ' + keysOf('up') + ' ' + keysOf('down') + ' move · ' +
-    keysOf('build') + ' builds · ' + keysOf('tick') + ' runs a tick · ' + keysOf('auto') + ' auto-run · ' +
-    keysOf('belt') + ' belt · ' + keysOf('machine') + ' machine · ' + keysOf('rotate') + ' rotate · ' +
-    keysOf('remove') + ' remove · ' + keysOf('upgrade') + ' upgrade · ' + keysOf('hint') + ' hint · ' +
-    keysOf('undo') + ' undo · ' + keysOf('pause') + ' pause · Esc back.';
+  return tr('keys.line', {
+    move: keysOf('left') + ' ' + keysOf('right') + ' ' + keysOf('up') + ' ' + keysOf('down'),
+    build: keysOf('build'), tick: keysOf('tick'), auto: keysOf('auto'), belt: keysOf('belt'), machine: keysOf('machine'),
+    rotate: keysOf('rotate'), remove: keysOf('remove'), upgrade: keysOf('upgrade'), hint: keysOf('hint'),
+    undo: keysOf('undo'), pause: keysOf('pause')
+  });
 }
 
 function renderTitle(root) {
   clearNode(root);
   root.appendChild(h('h1', null, ['Assembly Vale']));
-  var p = h('p', null, [
-    'Place production stations and conveyors to turn raw inputs into increasingly valuable goods. ',
-    'Deliver them at the Exchange. Fulfilling every contract before the tick limit wins the round.'
-  ]);
+  var p = h('p', null, [tr('title.desc')]);
   root.appendChild(p);
   root.appendChild(art('./assets/keyart.webp', 'keyart'));
 
   function btn(label, onClick) { return h('button', { class:'btn primary big', onclick:onClick }, [label]); }
   var actions = [];
-  actions.push(btn('Play', function(){ setScreen('mode-select'); }));
-  actions.push(btn('Daily Challenge', function(){ startRound(Content.dailyConfig(todayStr()), 'daily'); }));
-  actions.push(btn('Journey', function(){ setScreen('journey-select'); }));
-  actions.push(btn('Lessons (Learn)', function(){ setScreen('lesson-select'); }));
-  actions.push(btn('Challenges', function(){ setScreen('challenge-select'); }));
-  actions.push(btn('Practice', function(){ setScreen('practice-select'); }));
-  actions.push(btn('Score Chase', function(){ startRound(Content.scoreChaseCfg(null), 'score-chase'); }));
+  actions.push(btn(tr('m.play'), function(){ setScreen('mode-select'); }));
+  actions.push(btn(tr('m.daily'), function(){ startRound(Content.dailyConfig(todayStr()), 'daily'); }));
+  actions.push(btn(tr('m.journey'), function(){ setScreen('journey-select'); }));
+  actions.push(btn(tr('m.lessons'), function(){ setScreen('lesson-select'); }));
+  actions.push(btn(tr('m.challenges'), function(){ setScreen('challenge-select'); }));
+  actions.push(btn(tr('m.practice'), function(){ setScreen('practice-select'); }));
+  actions.push(btn(tr('m.score'), function(){ startRound(Content.scoreChaseCfg(null), 'score-chase'); }));
   root.appendChild(h('div',{class:'actions'},actions));
 
   var prog = loadProgress();
   var foot = h('footer',{class:'foot'},[
-    h('small',null,['Rounds played: ' + prog.stats.rounds + ' · Wins: ' + prog.stats.wins + ' · Best score: ' + prog.stats.bestScore]),
+    h('small',null,[tr('title.stats', { rounds: prog.stats.rounds, wins: prog.stats.wins, best: prog.stats.bestScore })]),
     h('small',{id:'account-line'},[accountText()]),
-    h('small',null,['Original. No real-money wagering, no ads, no energy pressure.'])
+    h('small',null,[tr('title.fair')])
   ]);
   foot.appendChild(settingsButton('btn'));
   accountButtons(foot);
@@ -256,35 +282,29 @@ function renderTitle(root) {
 
 function renderModeSelect(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Choose a mode']));
-  var p = h('p', null, [
-    'Learn: interactive lessons. Journey: authored progression with mastery stages. ',
-    'Daily: one shared seed per UTC day. Practice: selectable difficulty, no rating effect.'
-  ]);
+  root.appendChild(h('h2', null, [tr('modes.title')]));
+  var p = h('p', null, [tr('modes.desc')]);
   root.appendChild(p);
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
-  actions.push(btn('Lessons (Learn)', function(){ setScreen('lesson-select'); }));
-  actions.push(btn('Journey', function(){ setScreen('journey-select'); }));
-  actions.push(btn('Daily Challenge', function(){ startRound(Content.dailyConfig(todayStr()), 'daily'); }));
-  actions.push(btn('Challenges', function(){ setScreen('challenge-select'); }));
-  actions.push(btn('Practice', function(){ setScreen('practice-select'); }));
-  actions.push(btn('Score Chase', function(){ startRound(Content.scoreChaseCfg(null), 'score-chase'); }));
+  actions.push(btn(tr('m.lessons'), function(){ setScreen('lesson-select'); }));
+  actions.push(btn(tr('m.journey'), function(){ setScreen('journey-select'); }));
+  actions.push(btn(tr('m.daily'), function(){ startRound(Content.dailyConfig(todayStr()), 'daily'); }));
+  actions.push(btn(tr('m.challenges'), function(){ setScreen('challenge-select'); }));
+  actions.push(btn(tr('m.practice'), function(){ setScreen('practice-select'); }));
+  actions.push(btn(tr('m.score'), function(){ startRound(Content.scoreChaseCfg(null), 'score-chase'); }));
   root.appendChild(h('div',{class:'actions'},actions));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Back to title:'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('title');}},['Title']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('modes.backTitle')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('title');}},[tr('btn.title')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderJourneySelect(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Journey']));
-  var p = h('p', null, [
-    'Forty authored stages. One mechanic at a time, then combinations. ',
-    'A mastery stage closes each block of four.'
-  ]);
+  root.appendChild(h('h2', null, [tr('m.journey')]));
+  var p = h('p', null, [tr('journey.desc')]);
   root.appendChild(p);
 
   var prog = loadProgress();
@@ -293,121 +313,118 @@ function renderJourneySelect(root) {
   for (var i=0;i<Content.JOURNEY.length;i++) {
     var st = Content.JOURNEY[i];
     var best = prog.journeyBest[st.id];
-    var label = st.name + (st.mastery?' *':'') + (best ? ' — best ' + best : '');
+    var label = journeyName(st) + (st.mastery?' *':'') + (best ? tr('journey.best', { n: best }) : '');
     actions.push(btn(label, function(idx){ return function(){ startRound(Content.journeyCfg(idx),'journey'); }; }(i)));
   }
   root.appendChild(h('div',{class:'actions'},actions));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['* mastery stage'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},['Back']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('journey.mastery')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},[tr('btn.back')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderLessonSelect(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Lessons (Learn)']));
-  root.appendChild(h('p', null, ['Five lessons. Each introduces one rule and requires the action to be performed.']));
+  root.appendChild(h('h2', null, [tr('m.lessons')]));
+  root.appendChild(h('p', null, [tr('lessons.desc')]));
 
   var prog = loadProgress();
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
   for (var i=0;i<Content.LESSONS.length;i++) {
     var l = Content.LESSONS[i];
-    actions.push(btn(l.name + (prog.tutorialDone[l.id] ? ' ✓' : ''), function(idx){ return function(){ startRound(Content.lessonCfg(idx),'learn'); }; }(i)));
+    actions.push(btn(lessonName(l) + (prog.tutorialDone[l.id] ? ' ✓' : ''), function(idx){ return function(){ startRound(Content.lessonCfg(idx),'learn'); }; }(i)));
   }
   root.appendChild(h('div',{class:'actions'},actions));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Learn mode.'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},['Back']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('lessons.foot')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},[tr('btn.back')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderChallengeSelect(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Challenges']));
-  root.appendChild(h('p', null, ['Five constrained goals: move limits, speed targets, altered layouts.']));
+  root.appendChild(h('h2', null, [tr('m.challenges')]));
+  root.appendChild(h('p', null, [tr('challenges.desc')]));
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
   for (var i=0;i<Content.CHALLENGES.length;i++) {
     var c = Content.CHALLENGES[i];
-    actions.push(btn(c.name, function(idx){ return function(){ startRound(Content.challengeCfg(Content.CHALLENGES[idx].id),'challenge'); }; }(i)));
+    actions.push(btn(challengeLabel(c), function(idx){ return function(){ startRound(Content.challengeCfg(Content.CHALLENGES[idx].id),'challenge'); }; }(i)));
   }
   root.appendChild(h('div',{class:'actions'},actions));
 
   var list = h('ul',{class:'list'});
   for (var j=0;j<Content.CHALLENGES.length;j++) {
-    list.appendChild(h('li',null,[Content.CHALLENGES[j].name + ' — ' + Content.CHALLENGES[j].desc]));
+    list.appendChild(h('li',null,[challengeLabel(Content.CHALLENGES[j]) + ' — ' + challengeDesc(Content.CHALLENGES[j])]));
   }
   root.appendChild(list);
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Constrained goals.'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},['Back']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('challenges.foot')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},[tr('btn.back')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderPracticeSelect(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Practice']));
-  root.appendChild(h('p', null, ['Three difficulty presets. Selectable; no effect on competitive rating.']));
+  root.appendChild(h('h2', null, [tr('m.practice')]));
+  root.appendChild(h('p', null, [tr('practice.desc')]));
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
   var diffs = ['relaxed','standard','veteran'];
   for (var i=0;i<diffs.length;i++) {
     var d = diffs[i];
-    actions.push(btn(Content.PRACTICE[d].name, function(diff){ return function(){ startRound(Content.practiceCfg(diff,null),'practice'); }; }(d)));
+    actions.push(btn(practiceLabel(d), function(diff){ return function(){ startRound(Content.practiceCfg(diff,null),'practice'); }; }(d)));
   }
   root.appendChild(h('div',{class:'actions'},actions));
 
   var list = h('ul',{class:'list'});
-  for (var k=0;k<diffs.length;k++) list.appendChild(h('li',null,[Content.PRACTICE[diffs[k]].name + ' — ' + Content.PRACTICE[diffs[k]].desc]));
+  for (var k=0;k<diffs.length;k++) list.appendChild(h('li',null,[practiceLabel(diffs[k]) + ' — ' + practiceDesc(diffs[k])]));
   root.appendChild(list);
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Selectable difficulty.'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},['Back']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('practice.foot')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('mode-select');}},[tr('btn.back')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderHelp(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['How to play']));
-  root.appendChild(h('p', null, [
-    'Goods ride conveyor belts toward the Exchange, where they sell for gold. ',
-    'Machines refine goods into more valuable forms. Fulfil every contract line before the tick limit to win.'
-  ]));
+  root.appendChild(h('h2', null, [tr('help.title')]));
+  root.appendChild(h('p', null, [tr('help.intro')]));
   var list = h('ul',{class:'list'},[
-    h('li',null,['Pick a tool, then click a board cell (or move the selection with the arrow keys and press Enter).']),
-    h('li',null,['Belts and machines send goods out of the side they face — use Rotate to turn them.']),
-    h('li',null,['Every build, rotate, removal and upgrade costs one tick, just like running the simulation.']),
-    h('li',null,['Removing a building refunds half its cost; anything it was carrying is lost.']),
-    h('li',null,['Practice and lesson rounds allow Undo (' + keysOf('undo') + ').']),
+    h('li',null,[tr('help.1')]),
+    h('li',null,[tr('help.2')]),
+    h('li',null,[tr('help.3')]),
+    h('li',null,[tr('help.4')]),
+    h('li',null,[tr('help.5', { keys: keysOf('undo') })]),
     h('li',null,[keysLine()])
   ]);
   root.appendChild(list);
   root.appendChild(art('./assets/help-line.webp', 'illus'));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Rules and controls.'])]);
-  var back=h('button',{class:'btn primary',onclick:function(){ setScreen(state && !state.terminal ? 'play' : 'title'); }},['Back']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('help.foot')])]);
+  var back=h('button',{class:'btn primary',onclick:function(){ setScreen(state && !state.terminal ? 'play' : 'title'); }},[tr('btn.back')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderPaused(root) {
   clearNode(root);
-  root.appendChild(h('h2', null, ['Paused']));
-  root.appendChild(h('p', null, ['The simulation is stopped. Resume to continue the round.']));
+  root.appendChild(h('h2', null, [tr('paused.title')]));
+  root.appendChild(h('p', null, [tr('paused.desc')]));
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
-  actions.push(btn('Resume', function(){ setScreen('play'); }));
-  actions.push(btn('Restart round', function(){ startRound(sessionCfg, sessionKind()); }));
-  actions.push(btn('How to play', function(){ setScreen('help'); }));
-  actions.push(btn('Sound: ' + (settings.muted ? 'off' : 'on'), function(){ toggleMute(); render(); }));
+  actions.push(btn(tr('btn.resume'), function(){ setScreen('play'); }));
+  actions.push(btn(tr('btn.restart'), function(){ startRound(sessionCfg, sessionKind()); }));
+  actions.push(btn(tr('btn.howto'), function(){ setScreen('help'); }));
+  actions.push(btn(tr(settings.muted ? 'sound.off' : 'sound.on'), function(){ toggleMute(); render(); }));
   actions.push(settingsButton('btn primary big'));
-  actions.push(btn('Leave round', function(){ leaveRound(); }));
+  actions.push(btn(tr('btn.leave'), function(){ leaveRound(); }));
   root.appendChild(h('div',{class:'actions'},actions));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Paused.'])]);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('paused.foot')])]);
   root.appendChild(foot);
 }
 
@@ -525,10 +542,38 @@ function refreshGfxSummary() {
   if (mnote) mnote.hidden = !gfx.reducedMotion;
 }
 
+// Language changed (Settings → Language, or the account preference arrived).
+// Settings relabels in place so the open Language control keeps focus; every
+// other screen re-renders from state (a running round, its auto-run timer and
+// the board state are untouched).
+function onLanguageChange() {
+  if (screen === 'settings') {
+    var set = function (sel, text) { var n = el.root.querySelector(sel); if (n) n.textContent = text; };
+    set('#settings-title', tr('settings.title'));
+    set('#settings-intro', tr('settings.intro'));
+    set('#gfx-heading', tr('gfx.heading'));
+    set('#gfx-note', tr('gfx.postNote'));
+    set('#gfx-motion-note', tr('gfx.motionNote'));
+    set('#settings-back', tr('settings.back'));
+    var prev = document.getElementById('gfx-preview');
+    if (prev) prev.setAttribute('aria-label', tr('gfx.preview'));
+    el.root.querySelectorAll('[lang]').forEach(function (n) { n.setAttribute('lang', LOCALE); });
+    rebuildGfxControls(null);
+    refreshGfxSummary();
+    if (boardView) boardView.update();
+  } else {
+    var focusId = document.activeElement && document.activeElement.id;
+    render();
+    var f = focusId && document.getElementById(focusId);
+    if (f) f.focus();
+  }
+  if (fpsEl) updateFps(null);
+}
+
 function renderSettings(root) {
   clearNode(root);
-  root.appendChild(h('h2', { lang: LOCALE }, [tr('settings.title')]));
-  root.appendChild(h('p', { lang: LOCALE }, [tr('settings.intro')]));
+  root.appendChild(h('h2', { lang: LOCALE, id: 'settings-title' }, [tr('settings.title')]));
+  root.appendChild(h('p', { lang: LOCALE, id: 'settings-intro' }, [tr('settings.intro')]));
 
   var panel = h('section', { class: 'panel gfx-panel', id: 'gfx-panel', lang: LOCALE, 'aria-labelledby': 'gfx-heading' });
   panel.appendChild(h('h3', { id: 'gfx-heading' }, [tr('gfx.heading')]));
@@ -566,18 +611,18 @@ function renderSettings(root) {
 function renderResults(root) {
   clearNode(root);
   var won = !!(state.terminal && state.terminal.won);
-  root.appendChild(h('h2', null, [won ? 'Contracts complete' : 'Round over']));
+  root.appendChild(h('h2', null, [tr(won ? 'res.won' : 'res.over')]));
   root.appendChild(h('p', null, [won
-    ? 'Every contract line was fulfilled with ' + Math.max(0, (state.cfg.tickLimit || 0) - state.tick) + ' ticks to spare.'
-    : (state.terminal && state.terminal.reason === 'resigned' ? 'You left the round early.' : 'The tick limit ran out before every contract was filled.')]));
+    ? tr('res.wonDesc', { n: Math.max(0, (state.cfg.tickLimit || 0) - state.tick) })
+    : tr(state.terminal && state.terminal.reason === 'resigned' ? 'res.resigned' : 'res.lost')]));
 
   var list = h('ul',{class:'list'},[
-    h('li',null,['Score: ' + state.score.total]),
-    h('li',null,['Goods sold value: ' + state.score.goods]),
-    h('li',null,['Contract bonus: ' + state.score.contractBonus]),
-    h('li',null,['Gold left: ' + state.score.goldLeft]),
-    h('li',null,['Speed bonus: ' + state.score.speedBonus]),
-    h('li',null,['Ticks used: ' + state.tick + (state.cfg.tickLimit ? (' / ' + state.cfg.tickLimit) : '')])
+    h('li',null,[tr('res.score', { n: state.score.total })]),
+    h('li',null,[tr('res.goods', { n: state.score.goods })]),
+    h('li',null,[tr('res.bonus', { n: state.score.contractBonus })]),
+    h('li',null,[tr('res.gold', { n: state.score.goldLeft })]),
+    h('li',null,[tr('res.speed', { n: state.score.speedBonus })]),
+    h('li',null,[tr('res.ticks', { n: state.tick + (state.cfg.tickLimit ? (' / ' + state.cfg.tickLimit) : '') })])
   ]);
   root.appendChild(list);
   if (lbStatus) root.appendChild(h('p', { id: 'results-lb', role: 'status' }, [lbText()]));
@@ -585,29 +630,29 @@ function renderResults(root) {
 
   function btn(label, onClick) { return h('button',{class:'btn primary big',onclick:onClick},[label]); }
   var actions=[];
-  actions.push(btn('Play again (same round)', function(){ startRound(sessionCfg, sessionKind()); }));
+  actions.push(btn(tr('btn.again'), function(){ startRound(sessionCfg, sessionKind()); }));
   if (sessionKind()==='journey' && journeyIndex >= 0 && journeyIndex < Content.JOURNEY.length-1) {
-    actions.push(btn('Next stage', function(){ startRound(Content.journeyCfg(journeyIndex+1), 'journey'); }));
+    actions.push(btn(tr('btn.next'), function(){ startRound(Content.journeyCfg(journeyIndex+1), 'journey'); }));
   }
-  actions.push(btn('Choose a mode', function(){ setScreen('mode-select'); }));
+  actions.push(btn(tr('btn.modes'), function(){ setScreen('mode-select'); }));
   root.appendChild(h('div',{class:'actions'},actions));
 
-  var foot = h('footer',{class:'foot'},[h('small',null,['Results.'])]);
-  var back=h('button',{class:'btn',onclick:function(){setScreen('title');}},['Title']);
+  var foot = h('footer',{class:'foot'},[h('small',null,[tr('res.foot')])]);
+  var back=h('button',{class:'btn',onclick:function(){setScreen('title');}},[tr('btn.title')]);
   foot.appendChild(back); root.appendChild(foot);
 }
 
 function renderPlay(root) {
   clearNode(root);
   // header: stage name, gold, tick/limit, pause
-  el.gold = h('span',{class:'gold'},['Gold: ' + state.gold]);
-  el.tick = h('span',{class:'tick'},['Tick: ' + state.tick + (state.cfg.tickLimit ? (' / '+state.cfg.tickLimit) : '')]);
+  el.gold = h('span',{class:'gold'},[goldText()]);
+  el.tick = h('span',{class:'tick'},[tickText()]);
   var head = h('div',{class:'head'},[
     h('h2',null,[stageName()]),
     el.gold,
     el.tick,
-    h('button',{class:'btn',onclick:function(){ setScreen('paused'); }},['Pause (P)']),
-    h('button',{class:'btn',onclick:function(){ setScreen('help'); }},['Help']),
+    h('button',{class:'btn',onclick:function(){ setScreen('paused'); }},[tr('btn.pause')]),
+    h('button',{class:'btn',onclick:function(){ setScreen('help'); }},[tr('btn.help')]),
     settingsButton('btn')
   ]);
   root.appendChild(head);
@@ -625,48 +670,51 @@ function renderPlay(root) {
   // footer: hint, live status and back to title
   var foot = h('footer',{class:'foot'});
   el.hint = h('small',{class:'hint'},[hintText()]);
-  el.status = h('div',{class:'status',role:'status','aria-live':'polite'},[statusText]);
+  el.status = h('div',{class:'status',role:'status','aria-live':'polite'},[statusMessage()]);
   foot.appendChild(el.hint);
   foot.appendChild(el.status);
-  var back=h('button',{class:'btn',onclick:function(){ leaveRound(); }},['Title']);
+  var back=h('button',{class:'btn',onclick:function(){ leaveRound(); }},[tr('btn.title')]);
   foot.appendChild(back); root.appendChild(foot);
 }
+
+function goldText() { return tr('hud.gold', { n: state.gold }); }
+function tickText() { return tr('hud.tick', { n: state.tick + (state.cfg.tickLimit ? (' / ' + state.cfg.tickLimit) : '') }); }
 
 function infoPanel() {
   var d = h('div',{class:'panel'});
   var lesson = currentLessonDef();
   if (lesson) {
-    d.appendChild(h('div',{class:'row lesson'},[lesson.text]));
+    d.appendChild(h('div',{class:'row lesson'},[lessonText(lesson)]));
     d.appendChild(h('hr'));
   }
   // objective: contracts with progress
   for (var good in state.cfg.contracts) {
     var need = state.cfg.contracts[good];
     var have = state.progress[good] || 0;
-    d.appendChild(h('div',{class:'row' + (have>=need ? ' done' : '')},['Contract ' + goodName(good) + ': ' + have + ' / ' + need]));
+    d.appendChild(h('div',{class:'row' + (have>=need ? ' done' : '')},[tr('info.contract', { good: goodName(good), have: have, need: need })]));
   }
   // score components (live)
   d.appendChild(h('hr'));
-  d.appendChild(h('div',{class:'row'},['Score: ' + state.score.total]));
-  d.appendChild(h('div',{class:'row dim'},['Goods value: ' + state.score.goods]));
-  d.appendChild(h('div',{class:'row dim'},['Contract bonus: ' + state.score.contractBonus]));
-  d.appendChild(h('div',{class:'row dim'},['Gold left (final): ' + state.score.goldLeft]));
-  d.appendChild(h('div',{class:'row dim'},['Speed bonus: ' + state.score.speedBonus]));
+  d.appendChild(h('div',{class:'row'},[tr('info.score', { n: state.score.total })]));
+  d.appendChild(h('div',{class:'row dim'},[tr('info.goods', { n: state.score.goods })]));
+  d.appendChild(h('div',{class:'row dim'},[tr('info.bonus', { n: state.score.contractBonus })]));
+  d.appendChild(h('div',{class:'row dim'},[tr('info.gold', { n: state.score.goldLeft })]));
+  d.appendChild(h('div',{class:'row dim'},[tr('info.speed', { n: state.score.speedBonus })]));
   if (state.cfg.buildLimit) {
-    d.appendChild(h('div',{class:'row dim'},['Buildings: ' + state.builds + ' / ' + state.cfg.buildLimit]));
+    d.appendChild(h('div',{class:'row dim'},[tr('info.builds', { n: state.builds, max: state.cfg.buildLimit })]));
   }
   d.appendChild(h('hr'));
-  d.appendChild(h('div',{class:'row dim'},['Selected: ' + describeCell(selectedCell.x, selectedCell.y)]));
+  d.appendChild(h('div',{class:'row dim'},[tr('info.selected', { cell: describeCell(selectedCell.x, selectedCell.y) })]));
   return d;
 }
 
 function legend() {
   var d = h('div',{class:'legend'});
-  d.appendChild(h('span',{class:'key src'},['Source']));
-  d.appendChild(h('span',{class:'key belt'},['Belt']));
-  d.appendChild(h('span',{class:'key mach'},['Machine']));
-  d.appendChild(h('span',{class:'key sink'},['Exchange']));
-  d.appendChild(h('span',{class:'key rock'},['Rock / water']));
+  d.appendChild(h('span',{class:'key src'},[tr('lg.source')]));
+  d.appendChild(h('span',{class:'key belt'},[tr('lg.belt')]));
+  d.appendChild(h('span',{class:'key mach'},[tr('lg.machine')]));
+  d.appendChild(h('span',{class:'key sink'},[tr('lg.exchange')]));
+  d.appendChild(h('span',{class:'key rock'},[tr('lg.rock')]));
   return d;
 }
 
@@ -682,7 +730,7 @@ function boardCanvas() {
   var cols = state.cfg.board.cols, rows = state.cfg.board.rows, cs = cellSize();
   var c = h('canvas',{
     id:'board', tabindex:'0', role:'application',
-    'aria-label':'Assembly Vale board. Arrow keys move the selection, Enter applies the current tool.',
+    'aria-label':tr('board.aria'),
     width: String(cols*cs), height: String(rows*cs),
     style: '--board-ar: ' + cols + ' / ' + rows + '; --board-ar-num: ' + (cols / rows)
   });
@@ -723,46 +771,46 @@ function toolButtons() {
       onclick:function(){setTool(id);}
     },[label]);
   }
-  d.appendChild(tbtn('Belt (place) — ' + Rules.beltCost(state) + 'g', TOOL_BELT));
+  d.appendChild(tbtn(tr('tool.belt', { cost: Rules.beltCost(state) }), TOOL_BELT));
   var cat = Rules.buildCatalog(state);
   for (var i=0;i<cat.length;i++) {
     if (cat[i].kind!=='machine') continue;
     var rec = Rules.recipeById(state.cfg, cat[i].recipe);
-    var lbl = rec.name + ' (' + goodName(rec.input) + '→' + goodName(rec.output) + ') — ' + cat[i].cost + 'g';
+    var lbl = tr('tool.machine', { name: recipeName(rec), in: goodName(rec.input), out: goodName(rec.output), cost: cat[i].cost });
     d.appendChild(h('button',{
       class:'tool'+(tool===TOOL_MACHINE && recipeChoice===cat[i].recipe ? ' active':'') + (cat[i].afford ? '' : ' poor'),
       'aria-pressed': (tool===TOOL_MACHINE && recipeChoice===cat[i].recipe) ? 'true' : 'false',
       onclick:function(id){ return function(){ recipeChoice=id; setTool(TOOL_MACHINE); }; }(cat[i].recipe)
     },[lbl]));
   }
-  if (cat.length<2) d.appendChild(h('div',{class:'row dim'},['No machines in this stage.']));
-  d.appendChild(tbtn('Rotate', TOOL_ROTATE));
-  d.appendChild(tbtn('Remove', TOOL_REMOVE));
-  if (state.cfg.upgrades) d.appendChild(tbtn('Upgrade', TOOL_UPGRADE));
+  if (cat.length<2) d.appendChild(h('div',{class:'row dim'},[tr('tool.none')]));
+  d.appendChild(tbtn(tr('tool.rotate'), TOOL_ROTATE));
+  d.appendChild(tbtn(tr('tool.remove'), TOOL_REMOVE));
+  if (state.cfg.upgrades) d.appendChild(tbtn(tr('tool.upgrade'), TOOL_UPGRADE));
   return d;
 }
 
 function actionButtons() {
   var d = h('div',{class:'panel actions-col'});
   function abtn(label,onClick,cls){ return h('button',{class:'act ' + (cls||'primary big'),onclick:onClick},[label]); }
-  d.appendChild(abtn('Run one tick (Space)', function(){ doTick(); }));
-  el.autoBtn = abtn(autoTimer ? 'Stop auto-run (A)' : 'Auto-run (A)', function(){ toggleAuto(); });
+  d.appendChild(abtn(tr('act.tick'), function(){ doTick(); }));
+  el.autoBtn = abtn(tr(autoTimer ? 'act.stop' : 'act.auto'), function(){ toggleAuto(); });
   d.appendChild(el.autoBtn);
-  d.appendChild(abtn('Hint (H)', function(){ showHint(); }));
-  if (undoEnabled()) d.appendChild(abtn('Undo (Z)', function(){ undo(); }, 'act'));
-  d.appendChild(abtn('Restart round', function(){ startRound(sessionCfg, sessionKind()); }, 'act'));
+  d.appendChild(abtn(tr('act.hint'), function(){ showHint(); }));
+  if (undoEnabled()) d.appendChild(abtn(tr('act.undo'), function(){ undo(); }, 'act'));
+  d.appendChild(abtn(tr('btn.restart'), function(){ startRound(sessionCfg, sessionKind()); }, 'act'));
   return d;
 }
 
 // ---------- names / labels (presentation only) ----------
 function stageName() {
   var k = sessionCfg.kind;
-  if (k==='journey') return sessionCfg.name || 'Journey';
-  if (k==='learn') return 'Lesson: ' + lessonTitle();
-  if (k==='daily') return 'Daily ' + todayStr();
+  if (k==='journey') return sessionCfg.id ? tr('j.' + sessionCfg.id) : tr('stage.journey');
+  if (k==='learn') return tr('stage.lesson', { name: lessonTitle() });
+  if (k==='daily') return tr('stage.daily', { date: todayStr() });
   if (k==='challenge') return challengeName();
   if (k==='practice') return practiceDiffName();
-  if (k==='score-chase' || k==='score') return 'Score Chase';
+  if (k==='score-chase' || k==='score') return tr('m.score');
   return sessionCfg.name || '';
 }
 
@@ -774,37 +822,37 @@ function currentLessonDef() {
 
 function lessonTitle() {
   var l = currentLessonDef();
-  return l ? l.name : '';
+  return l ? lessonName(l) : '';
 }
 
 function challengeName() {
-  var id = sessionCfg.challengeId; if (!id) return 'Challenge';
-  for (var i=0;i<Content.CHALLENGES.length;i++) if (Content.CHALLENGES[i].id===id) return Content.CHALLENGES[i].name;
-  return 'Challenge';
+  var id = sessionCfg.challengeId; if (!id) return tr('stage.challenge');
+  for (var i=0;i<Content.CHALLENGES.length;i++) if (Content.CHALLENGES[i].id===id) return challengeLabel(Content.CHALLENGES[i]);
+  return tr('stage.challenge');
 }
 
 function practiceDiffName() {
-  var d = sessionCfg.practiceDifficulty; if (!d) return 'Practice';
-  return Content.PRACTICE[d] ? Content.PRACTICE[d].name : 'Practice';
+  var d = sessionCfg.practiceDifficulty; if (!d) return tr('stage.practice');
+  return Content.PRACTICE[d] ? practiceLabel(d) : tr('stage.practice');
 }
 
 function goodName(t) {
-  var m = Content.GOOD_META[t]; return m ? m.name : t;
+  return Content.GOOD_META[t] ? tr('good.' + t) : t;
 }
 
 function describeCell(x,y) {
   if (!Rules.inBounds(state.cfg, x, y)) return '—';
   var cell = state.grid[y][x];
   var where = '(' + (x+1) + ', ' + (y+1) + ') ';
-  if (!cell) return where + 'empty meadow';
-  if (cell.k==='rock') return where + 'rock';
-  if (cell.k==='water') return where + 'water';
-  if (cell.k==='sink') return where + 'Exchange';
-  if (cell.k==='source') return where + goodName(cell.item) + ' source facing ' + cell.dir;
-  if (cell.k==='belt') return where + 'belt facing ' + cell.dir + (cell.itemRef ? ' carrying ' + goodName(cell.itemRef.t) : '');
+  if (!cell) return where + tr('cell.empty');
+  if (cell.k==='rock') return where + tr('cell.rock');
+  if (cell.k==='water') return where + tr('cell.water');
+  if (cell.k==='sink') return where + tr('cell.sink');
+  if (cell.k==='source') return where + tr('cell.source', { good: goodName(cell.item), dir: dirName(cell.dir) });
+  if (cell.k==='belt') return where + tr('cell.belt', { dir: dirName(cell.dir) }) + (cell.itemRef ? tr('cell.carrying', { good: goodName(cell.itemRef.t) }) : '');
   if (cell.k==='machine') {
     var rec = Rules.recipeById(state.cfg, cell.recipe);
-    return where + (rec ? rec.name : 'machine') + ' level ' + cell.level + ' facing ' + cell.dir;
+    return where + tr('cell.machine', { name: recipeName(rec), level: cell.level, dir: dirName(cell.dir) });
   }
   return where + cell.k;
 }
@@ -813,14 +861,14 @@ function describeCell(x,y) {
 function setTool(id) {
   tool = id;
   sfx('tool');
-  setStatus('Tool: ' + id);
+  setStatus(function () { return tr('st.tool', { tool: tr('tn.' + id) }); });
   refreshPlay();
 }
 
 function selectCell(x,y) {
   if (!Rules.inBounds(state.cfg, x, y)) return;
   selectedCell.x=x; selectedCell.y=y;
-  setStatus(describeCell(x,y));
+  setStatus(function () { return describeCell(x, y); });
   refreshPlay();
 }
 
@@ -832,10 +880,10 @@ function moveSelection(dx,dy) {
 }
 
 function applyToolAt(x,y) {
-  if (!tool) { setStatus('Pick a tool first.'); refreshPlay(); return; }
+  if (!tool) { setStatus(msg('st.pickTool')); refreshPlay(); return; }
   if (tool===TOOL_BELT) placeAt(x,y,'belt',null);
   else if (tool===TOOL_MACHINE) {
-    if (!recipeChoice) { setStatus('Pick a machine type first.'); refreshPlay(); return; }
+    if (!recipeChoice) { setStatus(msg('st.pickMachine')); refreshPlay(); return; }
     placeAt(x,y,'machine',recipeChoice);
   }
   else if (tool===TOOL_ROTATE) rotateAt(x,y);
@@ -844,15 +892,16 @@ function applyToolAt(x,y) {
 }
 
 function hintText() {
-  var hres = Rules.hint(state); if (!hres) return 'Keep delivering goods at the Exchange until every contract line is complete.';
+  var hres = Rules.hint(state); if (!hres) return tr('hint.keep');
   var c = hres.cmd, why = hres.why||'';
+  var at = { x: c.x + 1, y: c.y + 1 };
   if (c.type==='place') {
-    if (c.kind==='belt') return 'Hint: place a belt at (' + (c.x+1) + ', ' + (c.y+1) + ') to carry goods onward.';
-    return 'Hint: place a ' + (Rules.recipeById(state.cfg, c.recipe)||{name:'machine'}).name + ' at (' + (c.x+1) + ', ' + (c.y+1) + ').';
+    if (c.kind==='belt') return tr('hint.belt', at);
+    return tr('hint.machine', { name: recipeName(Rules.recipeById(state.cfg, c.recipe)), x: at.x, y: at.y });
   }
-  if (c.type==='rotate') return 'Hint: rotate the building at (' + (c.x+1) + ', ' + (c.y+1) + ') so its output faces onward.';
-  if (c.type==='upgrade') return 'Hint: upgrade the machine at (' + (c.x+1) + ', ' + (c.y+1) + ') to work faster.';
-  if (why==='deliver' || why==='win') return 'Keep delivering goods at the Exchange until every contract line is complete.';
+  if (c.type==='rotate') return tr('hint.rotate', at);
+  if (c.type==='upgrade') return tr('hint.upgrade', at);
+  if (why==='deliver' || why==='win') return tr('hint.keep');
   return '';
 }
 
@@ -860,28 +909,19 @@ function hintText() {
 //  ACTIONS
 // =====================================================================
 
-var REASON_TEXT = {
-  'game-ended': 'The round is over.',
-  'out-of-bounds': 'That cell is off the board.',
-  'cell-blocked': 'Rock and water cannot be built on.',
-  'cell-occupied': 'That cell is already occupied.',
-  'not-a-building': 'There is no belt or machine there.',
-  'insufficient-gold': 'Not enough gold.',
-  'recipe-locked': 'That machine is not available in this stage.',
-  'max-level': 'That machine is already at maximum level.',
-  'upgrade-disabled': 'Upgrades are disabled in this stage.',
-  'build-limit': 'The building limit for this stage is reached.',
-  'malformed-command': 'That action is not possible here.',
-  'unknown-command': 'That action is not possible here.'
-};
+function reasonText(reason) {
+  var key = 'reason.' + reason;
+  var text = tr(key);
+  return text !== key ? text : tr('reason.other', { reason: reason });
+}
 
 function undoEnabled() { return !!(sessionCfg && sessionCfg.mechanics && sessionCfg.mechanics.undo); }
 
 function undo() {
-  if (!undoEnabled() || !history.length) { setStatus('Nothing to undo.'); refreshPlay(); return; }
+  if (!undoEnabled() || !history.length) { setStatus(msg('st.nothingUndo')); refreshPlay(); return; }
   state = history.pop();
   sfx('undo');
-  setStatus('Undid the last action.');
+  setStatus(msg('st.undid'));
   refreshPlay();
 }
 
@@ -929,13 +969,13 @@ function showHint() {
   var hres = Rules.hint(state);
   sfx('hint');
   if (hres && hres.cmd && hres.cmd.x != null) selectCell(hres.cmd.x, hres.cmd.y);
-  setStatus(hintText());
+  setStatus(hintText);
   refreshPlay();
 }
 
 function flashInvalid(reason) {
   sfx('invalid');
-  setStatus(REASON_TEXT[reason] || ('Not allowed: ' + reason));
+  setStatus(function () { return reasonText(reason); });
   refreshPlay();
 }
 
@@ -945,24 +985,37 @@ function playEvents(events) {
   var spoke = '';
   for (var i=0;i<events.length;i++) {
     var e = events[i];
-    if (e.type==='place') { sfx('place'); spoke = 'Built a ' + e.kind + '.'; }
-    else if (e.type==='remove') { sfx('remove'); spoke = 'Removed a ' + e.kind + '.'; }
-    else if (e.type==='rotate') { sfx('rotate'); spoke = 'Rotated to face ' + e.dir + '.'; }
-    else if (e.type==='upgrade') { sfx('upgrade'); spoke = 'Upgraded to level ' + e.level + '.'; }
+    if (e.type==='place') { sfx('place'); spoke = eventText(e.kind === 'machine' ? 'ev.placeMachine' : 'ev.placeBelt'); }
+    else if (e.type==='remove') { sfx('remove'); spoke = eventText(e.kind === 'machine' ? 'ev.removeMachine' : 'ev.removeBelt'); }
+    else if (e.type==='rotate') { sfx('rotate'); spoke = eventText('ev.rotate', { dir: e.dir }); }
+    else if (e.type==='upgrade') { sfx('upgrade'); spoke = eventText('ev.upgrade', { n: e.level }); }
     else if (e.type==='craft') sfx('craft');
     else if (e.type==='spawn') sfx('spawn');
-    else if (e.type==='deliver') { sfx('deliver'); spoke = 'Sold ' + goodName(e.item) + ' for ' + e.value + ' gold.'; }
-    else if (e.type==='contract-complete') { sfx('contract'); spoke = 'Contract complete: ' + goodName(e.item) + '.'; }
-    else if (e.type==='spoil') { sfx('spoil'); spoke = goodName(e.item) + ' was lost.'; }
-    else if (e.type==='win') { sfx('win'); spoke = 'All contracts complete.'; }
-    else if (e.type==='lose') { sfx('lose'); spoke = 'The round ended.'; }
+    else if (e.type==='deliver') { sfx('deliver'); spoke = eventText('ev.deliver', { good: e.item, n: e.value }); }
+    else if (e.type==='contract-complete') { sfx('contract'); spoke = eventText('ev.contract', { good: e.item }); }
+    else if (e.type==='spoil') { sfx('spoil'); spoke = eventText('ev.spoil', { good: e.item }); }
+    else if (e.type==='win') { sfx('win'); spoke = eventText('ev.win'); }
+    else if (e.type==='lose') { sfx('lose'); spoke = eventText('ev.lose'); }
   }
   if (spoke) setStatus(spoke);
 }
 
+// The live-region message is kept as a function of the current language so a
+// language change re-renders it; event values (good ids, directions) are
+// translated when it is read.
+function msg(key, vars) { return function () { return tr(key, vars); }; }
+function eventText(key, vars) {
+  return function () {
+    var v = Object.assign({}, vars || {});
+    if (v.good) v.good = goodName(v.good);
+    if (v.dir) v.dir = dirName(v.dir);
+    return tr(key, v);
+  };
+}
+function statusMessage() { return typeof statusText === 'function' ? statusText() : (statusText || ''); }
 function setStatus(text) {
   statusText = text || '';
-  if (el.status) { clearNode(el.status); el.status.appendChild(document.createTextNode(statusText)); }
+  if (el.status) { clearNode(el.status); el.status.appendChild(document.createTextNode(statusMessage())); }
 }
 
 // Called after every rules state change: refresh the play screen and handle
@@ -981,8 +1034,8 @@ function afterStateChange() {
 // Update the play screen in place (keeps focus and avoids canvas churn).
 function refreshPlay() {
   if (screen!=='play' || !state) return;
-  if (el.gold) { clearNode(el.gold); el.gold.appendChild(document.createTextNode('Gold: ' + state.gold)); }
-  if (el.tick) { clearNode(el.tick); el.tick.appendChild(document.createTextNode('Tick: ' + state.tick + (state.cfg.tickLimit ? (' / '+state.cfg.tickLimit) : ''))); }
+  if (el.gold) { clearNode(el.gold); el.gold.appendChild(document.createTextNode(goldText())); }
+  if (el.tick) { clearNode(el.tick); el.tick.appendChild(document.createTextNode(tickText())); }
   if (el.info && el.info.parentNode) { var fresh = infoPanel(); el.info.parentNode.replaceChild(fresh, el.info); el.info = fresh; }
   if (el.tools && el.tools.parentNode) {
     // Rebuild the palette (costs and affordability change with gold) while
@@ -998,7 +1051,7 @@ function refreshPlay() {
       if (fresh2[focusIdx]) fresh2[focusIdx].focus();
     }
   }
-  if (el.autoBtn) { clearNode(el.autoBtn); el.autoBtn.appendChild(document.createTextNode(autoTimer ? 'Stop auto-run (A)' : 'Auto-run (A)')); }
+  if (el.autoBtn) { clearNode(el.autoBtn); el.autoBtn.appendChild(document.createTextNode(tr(autoTimer ? 'act.stop' : 'act.auto'))); }
   if (el.hint) { clearNode(el.hint); el.hint.appendChild(document.createTextNode(hintText())); }
   if (el.boardCanvas && boardView) boardView.update();
 }
@@ -1125,7 +1178,7 @@ function startRound(cfg, kind) {
     prog.tutorialDone[cfg.lesson.id] = prog.tutorialDone[cfg.lesson.id] || false;
     saveProgress(prog);
   }
-  statusText = 'Round started. Pick a tool and build toward the Exchange.';
+  statusText = msg('st.started');
   startAudio();
   setScreen('play');
 }
@@ -1216,7 +1269,14 @@ async function init() {
     var remoteRaw = await Platform.init({
       onProfile: function () { if (screen === 'title') render(); },
       onSync: function () { if (screen === 'title') render(); },
-      onAuth: function (a) { if (!a.signedIn) signedOutNotice = true; if (screen === 'title') render(); }
+      onAuth: function (a) { if (!a.signedIn) signedOutNotice = true; if (screen === 'title') render(); },
+      // Another device saved first: merge both documents (better records win,
+      // this device's settings stay; the round in progress is in memory) and
+      // save the merge.
+      onConflict: function (raw) {
+        Store.save(Store.mergeDocs(raw ? Store.loadRaw(raw) : null, Store.load()));
+        if (screen !== 'play' && screen !== 'settings') render();
+      }
     });
     if (Platform.hosted) bindings = await Platform.loadBindings(DEFAULT_BINDINGS);
     var remoteDoc = remoteRaw ? Store.loadRaw(remoteRaw) : null;
