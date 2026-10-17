@@ -50,7 +50,8 @@
     medium: { blur: 0.12, off: 0.06, a: 0.38 },
     high:   { blur: 0.2,  off: 0.08, a: 0.42 }
   };
-  var MAX_PARTICLES = 320;
+  var MAX_PARTICLES = 2560; // hard ceiling; the preset budget (gfx.js BUDGETS) sets the live cap
+  var DEFAULT_BUDGET = { maxDpr: 2, tufts: 9, flowers: 0.35, particles: 320, burst: 1, clouds: 3, glows: 64 };
 
   /**
    * opts: {
@@ -64,6 +65,7 @@
    */
   function create(canvas, opts) {
     var cfg = Gfx.resolve({ preset: 'low' }, 'low');
+    function B() { return cfg.budget || DEFAULT_BUDGET; } // per-preset budget (gfx.js BUDGETS)
     var shared = opts.shared || { adaptive: 1 };
     var st = {
       k: 1, lw: 1, lh: 1, cs: 32, cssW: 0,
@@ -97,7 +99,7 @@
       st.cssW = cssW;
       // The canvas sits inside the zoomed UI (--ui-scale), so the backing store
       // also multiplies by the zoom to stay crisp on large screens.
-      var dpr = Math.min(root.devicePixelRatio || 1, 2) * ((root.UIScale && root.UIScale.value) || 1);
+      var dpr = Math.min(root.devicePixelRatio || 1, B().maxDpr) * ((root.UIScale && root.UIScale.value) || 1);
       var pr = dpr * cfg.scale * (cfg.adaptive ? shared.adaptive : 1);
       var bw = Math.max(cols, Math.min(4096, Math.round(cssW * pr)));
       var bh = Math.max(rows, Math.round(bw * rows / cols));
@@ -151,7 +153,8 @@
 
     // ---------- particles ----------
     function addParticle(p) {
-      if (st.particles.length >= MAX_PARTICLES) st.particles.shift();
+      var cap = Math.min(MAX_PARTICLES, B().particles);
+      while (st.particles.length >= cap) st.particles.shift();
       st.particles.push(p);
     }
     function burst(n, x, y, make) {
@@ -165,7 +168,7 @@
         if (evts && cfg.animation === 'animated') for (var j = 0; j < evts.length; j++) if (evts[j].type === 'deliver') st.flash = 1;
         return;
       }
-      var cs = opts.cellSize(state), mul = cfg.particles === 'high' ? 1 : 0.5;
+      var cs = opts.cellSize(state), mul = (cfg.particles === 'high' ? 1 : 0.5) * B().burst;
       var sink = state.cfg.sink, sx = sink.x * cs + cs / 2, sy = sink.y * cs + cs / 2;
       for (var i = 0; i < evts.length; i++) {
         var e = evts[i];
@@ -261,7 +264,7 @@
     // ---------- static terrain layer (cached) ----------
     function terrainKey(state) {
       return [state.cfg.id, state.cfg.theme, state.cfg.board.cols, state.cfg.board.rows, (state.cfg.terrain || []).length,
-        cfg.detail, cfg.grade, canvas.width, canvas.height].join('|');
+        cfg.detail, cfg.grade, B().tufts, B().flowers, canvas.width, canvas.height].join('|');
     }
 
     function buildStatic(state, th) {
@@ -288,12 +291,12 @@
           gr.addColorStop(0, 'rgba(255,255,255,0.07)'); gr.addColorStop(1, 'rgba(0,0,0,0.06)');
           g.fillStyle = gr; g.fillRect(x * cs, y * cs, cs, cs);
           g.lineCap = 'round'; g.lineWidth = Math.max(0.8, cs * 0.028);
-          for (i = 0; i < 9; i++) {
+          for (i = 0; i < B().tufts; i++) {
             var tx = x * cs + cs * (0.08 + r() * 0.84), ty = y * cs + cs * (0.12 + r() * 0.8), hgt = cs * (0.05 + r() * 0.07);
             g.strokeStyle = r() < 0.5 ? shade(base, 0.16, 0.7) : shade(base, -0.14, 0.7);
             g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + (r() - 0.5) * hgt * 0.8, ty - hgt); g.stroke();
           }
-          if (r() < 0.35) {
+          if (r() < B().flowers) {
             var fx = x * cs + cs * (0.15 + r() * 0.7), fy = y * cs + cs * (0.15 + r() * 0.7);
             g.fillStyle = shade(th.accent, 0.35, 0.55);
             g.beginPath(); g.arc(fx, fy, cs * 0.022, 0, Math.PI * 2); g.fill();
@@ -457,7 +460,7 @@
       if (!st.glows.length) return;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      for (var i = 0; i < st.glows.length; i++) {
+      for (var i = 0; i < st.glows.length && i < B().glows; i++) {
         var g = st.glows[i];
         var rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
         rg.addColorStop(0, rgba(g.color, g.a)); rg.addColorStop(1, rgba(g.color, 0));
@@ -481,11 +484,12 @@
 
     function drawClouds(t) {
       var w = st.lw, h = st.lh, cs = st.cs;
-      for (var i = 0; i < 3; i++) {
+      var n = B().clouds;
+      for (var i = 0; i < n; i++) {
         var speed = cs * (0.12 + i * 0.05);
         var span = w + cs * 6;
-        var cx = ((t / 1000) * speed + i * span / 3) % span - cs * 3;
-        var cy = h * (0.2 + i * 0.3);
+        var cx = ((t / 1000) * speed + i * span / n) % span - cs * 3;
+        var cy = h * (0.2 + ((i * 0.3) % 0.9));
         var rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, cs * 2.6);
         rg.addColorStop(0, 'rgba(10,20,30,0.10)'); rg.addColorStop(1, 'rgba(10,20,30,0)');
         ctx.fillStyle = rg;

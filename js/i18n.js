@@ -45,7 +45,7 @@
     'gfx.tier.plain': 'Plain', 'gfx.tier.detailed': 'Detailed', 'gfx.tier.static': 'Static', 'gfx.tier.animated': 'Animated',
     'gfx.adaptive': 'Adaptive resolution',
     'gfx.fps': 'Show frame rate',
-    'gfx.summary': '{gpu} · {preset} · cost ×{cost} · {w}×{h} px',
+    'gfx.summary': '{gpu} · Level {level} · {preset} · cost ×{cost} · {w}×{h} px',
     'gfx.postNote': 'Some effects could not be drawn on this device, so the board is shown without them.',
     'gfx.motionNote': 'Reduced motion is on: animation and particles stay off.',
     'gfx.fpsReadout': '{fps} fps · {ms} ms'
@@ -80,7 +80,7 @@
       'gfx.tier.off': 'Desactivado', 'gfx.tier.on': 'Activado', 'gfx.tier.low': 'Bajo', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
       'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Detallado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
       'gfx.adaptive': 'Resolución adaptable', 'gfx.fps': 'Mostrar cuadros por segundo',
-      'gfx.summary': '{gpu} · {preset} · costo ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Nivel {level} · {preset} · costo ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Algunos efectos no se pudieron dibujar en este dispositivo, así que el tablero se muestra sin ellos.',
       'gfx.motionNote': 'El movimiento reducido está activado: la animación y las partículas permanecen desactivadas.',
       'gfx.fpsReadout': '{fps} FPS · {ms} ms'
@@ -111,7 +111,7 @@
       'gfx.tier.off': 'Desactivado', 'gfx.tier.on': 'Activado', 'gfx.tier.low': 'Bajo', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
       'gfx.tier.plain': 'Sencillo', 'gfx.tier.detailed': 'Detallado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
       'gfx.adaptive': 'Resolución adaptativa', 'gfx.fps': 'Mostrar fotogramas por segundo',
-      'gfx.summary': '{gpu} · {preset} · coste ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Nivel {level} · {preset} · coste ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Algunos efectos no se han podido dibujar en este dispositivo, así que el tablero se muestra sin ellos.',
       'gfx.motionNote': 'El movimiento reducido está activado: la animación y las partículas siguen desactivadas.',
       'gfx.fpsReadout': '{fps} FPS · {ms} ms'
@@ -142,7 +142,7 @@
       'gfx.tier.off': 'Aus', 'gfx.tier.on': 'An', 'gfx.tier.low': 'Niedrig', 'gfx.tier.medium': 'Mittel', 'gfx.tier.high': 'Hoch',
       'gfx.tier.plain': 'Schlicht', 'gfx.tier.detailed': 'Detailliert', 'gfx.tier.static': 'Statisch', 'gfx.tier.animated': 'Animiert',
       'gfx.adaptive': 'Adaptive Auflösung', 'gfx.fps': 'Bildrate anzeigen',
-      'gfx.summary': '{gpu} · {preset} · Aufwand ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Stufe {level} · {preset} · Aufwand ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Einige Effekte konnten auf diesem Gerät nicht gezeichnet werden, daher wird das Brett ohne sie angezeigt.',
       'gfx.motionNote': 'Reduzierte Bewegung ist aktiv: Animation und Partikel bleiben aus.',
       'gfx.fpsReadout': '{fps} FPS · {ms} ms'
@@ -173,7 +173,7 @@
       'gfx.tier.off': 'Désactivé', 'gfx.tier.on': 'Activé', 'gfx.tier.low': 'Bas', 'gfx.tier.medium': 'Moyen', 'gfx.tier.high': 'Élevé',
       'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Détaillé', 'gfx.tier.static': 'Statique', 'gfx.tier.animated': 'Animé',
       'gfx.adaptive': 'Résolution adaptative', 'gfx.fps': 'Afficher la fréquence d’images',
-      'gfx.summary': '{gpu} · {preset} · coût ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Niveau {level} · {preset} · coût ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Certains effets n’ont pas pu être dessinés sur cet appareil ; le plateau s’affiche sans eux.',
       'gfx.motionNote': 'Le mouvement réduit est activé : l’animation et les particules restent désactivées.',
       'gfx.fpsReadout': '{fps} i/s · {ms} ms'
@@ -204,7 +204,7 @@
       'gfx.tier.off': 'Désactivé', 'gfx.tier.on': 'Activé', 'gfx.tier.low': 'Bas', 'gfx.tier.medium': 'Moyen', 'gfx.tier.high': 'Élevé',
       'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Détaillé', 'gfx.tier.static': 'Statique', 'gfx.tier.animated': 'Animé',
       'gfx.adaptive': 'Résolution adaptative', 'gfx.fps': 'Afficher le nombre d’images par seconde',
-      'gfx.summary': '{gpu} · {preset} · coût ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Niveau {level} · {preset} · coût ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Certains effets n’ont pas pu être affichés sur cet appareil; le plateau s’affiche donc sans eux.',
       'gfx.motionNote': 'Le mouvement réduit est activé : l’animation et les particules restent désactivées.',
       'gfx.fpsReadout': '{fps} im/s · {ms} ms'
@@ -235,7 +235,7 @@
       'gfx.tier.off': 'Desligado', 'gfx.tier.on': 'Ligado', 'gfx.tier.low': 'Baixo', 'gfx.tier.medium': 'Médio', 'gfx.tier.high': 'Alto',
       'gfx.tier.plain': 'Simples', 'gfx.tier.detailed': 'Detalhado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
       'gfx.adaptive': 'Resolução adaptativa', 'gfx.fps': 'Mostrar taxa de quadros',
-      'gfx.summary': '{gpu} · {preset} · custo ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Nível {level} · {preset} · custo ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Alguns efeitos não puderam ser desenhados neste dispositivo, então o tabuleiro aparece sem eles.',
       'gfx.motionNote': 'Movimento reduzido está ativado: animação e partículas ficam desligadas.',
       'gfx.fpsReadout': '{fps} FPS · {ms} ms'
@@ -266,7 +266,7 @@
       'gfx.tier.off': 'Disattivato', 'gfx.tier.on': 'Attivo', 'gfx.tier.low': 'Basso', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
       'gfx.tier.plain': 'Semplice', 'gfx.tier.detailed': 'Dettagliato', 'gfx.tier.static': 'Statico', 'gfx.tier.animated': 'Animato',
       'gfx.adaptive': 'Risoluzione adattiva', 'gfx.fps': 'Mostra fotogrammi al secondo',
-      'gfx.summary': '{gpu} · {preset} · costo ×{cost} · {w}×{h} px',
+      'gfx.summary': '{gpu} · Livello {level} · {preset} · costo ×{cost} · {w}×{h} px',
       'gfx.postNote': 'Alcuni effetti non possono essere disegnati su questo dispositivo, quindi il tabellone viene mostrato senza.',
       'gfx.motionNote': 'Il movimento ridotto è attivo: animazione e particelle restano disattivate.',
       'gfx.fpsReadout': '{fps} FPS · {ms} ms'

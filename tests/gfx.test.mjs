@@ -12,23 +12,45 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const Gfx = require(path.join(ROOT, 'js/gfx.js'));
 const I18n = require(path.join(ROOT, 'js/i18n.js'));
 
-test('detectPreset maps GPU strings to presets', () => {
+test('hardware level picks the Auto preset (StarHermit gpu-level.js)', () => {
   assert.equal(Gfx.detectPreset('Google SwiftShader'), 'low');
   assert.equal(Gfx.detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)'), 'low');
   assert.equal(Gfx.detectPreset('llvmpipe (LLVM 15.0.7, 256 bits)'), 'low');
   assert.equal(Gfx.detectPreset('Software (no WebGL)'), 'low');
+  assert.equal(Gfx.detectPreset('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'), 'low');
+  assert.equal(Gfx.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), 'low');
+  assert.equal(Gfx.detectPreset('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)'), 'balanced');
   assert.equal(Gfx.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0)'), 'high');
-  assert.equal(Gfx.detectPreset('Apple M2 Pro'), 'high');
-  assert.equal(Gfx.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), 'balanced');
-  assert.equal(Gfx.detectPreset('Adreno (TM) 740'), 'balanced');
-  assert.equal(Gfx.detectPreset(''), 'balanced');
-  assert.equal(Gfx.detectPreset('Apple M2 Pro', { mobile: true }), 'balanced', 'mobile Auto caps at balanced');
+  assert.equal(Gfx.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0)'), 'ultra');
+  assert.equal(Gfx.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)'), 'ultra');
+  assert.equal(Gfx.detectLevel('NVIDIA GeForce RTX 5090'), 20);
+  assert.equal(Gfx.detectPreset('Adreno (TM) 740', { mobile: true }), 'balanced', 'phones: Balanced at most');
+  assert.equal(Gfx.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090)', { mobile: true }), 'balanced');
+  for (const [p, lv] of Object.entries(Gfx.LEVELS)) assert.equal(Gfx.presetForLevel(lv), p);
+  assert.equal(Gfx.presetForLevel(9), 'balanced');
+  assert.equal(Gfx.presetForLevel(16), 'high');
+});
+
+test('per-preset budgets are explicit, grow from Low to Ultra and scale with the level', () => {
+  const keys = ['maxDpr', 'tufts', 'flowers', 'particles', 'burst', 'clouds', 'glows'];
+  for (const p of Gfx.PRESETS) for (const k of keys) assert.ok(k in Gfx.BUDGETS[p], `${p}.${k}`);
+  for (let i = 1; i < Gfx.PRESETS.length; i++) {
+    const a = Gfx.BUDGETS[Gfx.PRESETS[i - 1]], b = Gfx.BUDGETS[Gfx.PRESETS[i]];
+    for (const k of keys) assert.ok(b[k] >= a[k], `${Gfx.PRESETS[i]}.${k}`);
+  }
+  assert.equal(Gfx.BUDGETS.low.maxDpr, 1);
+  assert.deepEqual(Gfx.budget('high', 10), Gfx.BUDGETS.high);
+  assert.ok(Gfx.budget('high', 14).particles > Gfx.BUDGETS.high.particles);
+  assert.ok(Gfx.budget('ultra', 20).particles <= Gfx.BUDGETS.ultra.particles * 4);
+  assert.ok(Gfx.budget('ultra', 2).particles < Gfx.BUDGETS.ultra.particles);
+  assert.ok(Gfx.budget('ultra', 20).burst <= Gfx.BUDGETS.ultra.burst * 2);
+  assert.deepEqual(Gfx.resolve({ preset: 'low' }, 'low', { level: 0 }).budget, Gfx.BUDGETS.low);
 });
 
 test('resolve uses the detected preset for Auto and an explicit preset otherwise', () => {
   const auto = Gfx.resolve({}, 'low');
   assert.equal(auto.preset, 'low'); assert.equal(auto.auto, true);
-  assert.equal(auto.shadows, 'off'); assert.equal(auto.loop, false, 'Low draws on change only');
+  assert.equal(auto.shadows, 'off'); assert.equal(auto.animation, 'animated', 'Low still glides goods'); assert.equal(auto.particles, 'off');
   assert.equal(auto.post, false);
   const high = Gfx.resolve({ preset: 'high' }, 'low');
   assert.equal(high.auto, false);

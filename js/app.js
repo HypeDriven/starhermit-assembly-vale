@@ -62,7 +62,12 @@ function practiceDesc(d) { return tr('prd.' + d); }
 function dirName(d) { return tr('dir.' + d); }
 var gpuName = detectGpu();
 var isMobile = detectMobile();
-var detectedPreset = Gfx.detectPreset(gpuName, { mobile: isMobile });
+// StarHermit hardware level 0–20 (gpu-level.js) → Auto preset: Low 0, Balanced 4, High 10, Ultra 17.
+var gpuLevel = (function () {
+  try { if (window.StarHermitGpu) return window.StarHermitGpu.info().level; } catch (e) { /* fall through */ }
+  return Gfx.detectLevel(gpuName, { mobile: isMobile });
+})();
+var detectedPreset = Gfx.presetForLevel(gpuLevel);
 var gfx = null;                    // resolved settings (Gfx.resolve)
 var gfxShared = { adaptive: 1 };   // adaptive resolution scale, kept across screens
 var gfxFailed = false;             // an overlay pass threw; the board renders without it
@@ -108,7 +113,7 @@ function gfxSaved() { return settings.graphics || {}; }
 
 // Resolve the saved graphics settings and push them to every live renderer.
 function applyGraphics() {
-  gfx = Gfx.resolve(gfxSaved(), detectedPreset, { reducedMotion: reducedMotion() });
+  gfx = Gfx.resolve(gfxSaved(), detectedPreset, { reducedMotion: reducedMotion(), level: gpuLevel });
   document.body.setAttribute('data-gfx-preset', gfx.preset);
   if (boardView) boardView.setConfig(gfx);
   updateFps(null);
@@ -535,7 +540,7 @@ function refreshGfxSummary() {
   var sum = document.getElementById('gfx-summary');
   if (!sum || !gfx) return;
   var px = boardView ? boardView.pixels() : [0, 0];
-  sum.textContent = tr('gfx.summary', { gpu: gpuName, preset: presetLabel(gfx.preset), cost: Gfx.cost(gfx), w: px[0], h: px[1] });
+  sum.textContent = tr('gfx.summary', { gpu: gpuName, level: gpuLevel, preset: presetLabel(gfx.preset), cost: Gfx.cost(gfx), w: px[0], h: px[1] });
   var note = document.getElementById('gfx-note');
   if (note) note.hidden = !gfxFailed;
   var mnote = document.getElementById('gfx-motion-note');
