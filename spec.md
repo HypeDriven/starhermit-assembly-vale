@@ -304,7 +304,7 @@ Nine locales ship for all player-facing text: **en-US, en-GB, es-419, es-ES, de-
 ## 11. Accessibility
 
 - Keyboard-only path: every screen is reachable by Tab + Enter on real `<button>`s; the board canvas is focusable (`tabindex=0`, `role=application`, descriptive `aria-label`) and fully playable with arrows, Enter, Space and the letter keys. There are no keyboard traps; Esc always goes back.
-- Focus: `:focus-visible` draws a 3 px gold outline on buttons and the canvas; `refreshPlay` restores focus to the same tool button after the palette is rebuilt.
+- Focus: `:focus-visible` draws a 3 px gold outline on buttons and the canvas; `refreshPlay` updates the tool palette's buttons in place while the set of tools is unchanged (so a press during auto-run never loses its click) and restores focus to the same tool button when the palette is rebuilt.
 - Screen reader: the status line is `role=status aria-live=polite` and announces the selected cell ("(2, 1) belt facing E carrying Ore"), every result of an action, every sale and every refusal. Tool buttons carry `aria-pressed`. Contracts and score are plain text rows.
 - Contrast: `#eef6ee` on `#101a14` (≈15:1), `#20180a` on `#ffd166` (≈11:1), dim text `#b7c9ba` on panels (≈8:1).
 - Target size: all buttons are ≥44 px tall with 8–10 px gaps; board cells are ≥28 device px and scale with the canvas.

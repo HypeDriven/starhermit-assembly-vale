@@ -771,6 +771,7 @@ function toolButtons() {
   var d = h('div',{class:'panel'});
   function tbtn(label,id){
     return h('button',{
+      'data-key': id,
       class:'tool'+(tool===id?' active':''),
       'aria-pressed': tool===id ? 'true' : 'false',
       onclick:function(){setTool(id);}
@@ -783,6 +784,7 @@ function toolButtons() {
     var rec = Rules.recipeById(state.cfg, cat[i].recipe);
     var lbl = tr('tool.machine', { name: recipeName(rec), in: goodName(rec.input), out: goodName(rec.output), cost: cat[i].cost });
     d.appendChild(h('button',{
+      'data-key': 'machine:' + cat[i].recipe,
       class:'tool'+(tool===TOOL_MACHINE && recipeChoice===cat[i].recipe ? ' active':'') + (cat[i].afford ? '' : ' poor'),
       'aria-pressed': (tool===TOOL_MACHINE && recipeChoice===cat[i].recipe) ? 'true' : 'false',
       onclick:function(id){ return function(){ recipeChoice=id; setTool(TOOL_MACHINE); }; }(cat[i].recipe)
@@ -1036,6 +1038,22 @@ function afterStateChange() {
   refreshPlay();
 }
 
+// Copy the text, class and pressed state of a freshly built panel onto the
+// one on screen when both hold the same controls (same tags and keys), so its
+// buttons stay the same elements; false when the controls differ.
+function patchPanel(cur, fresh) {
+  var a = cur.children, b = fresh.children, i;
+  if (a.length !== b.length) return false;
+  for (i=0;i<a.length;i++) if (a[i].tagName !== b[i].tagName || a[i].getAttribute('data-key') !== b[i].getAttribute('data-key')) return false;
+  for (i=0;i<a.length;i++) {
+    if (a[i].className !== b[i].className) a[i].className = b[i].className;
+    var pressed = b[i].getAttribute('aria-pressed');
+    if (pressed !== null && a[i].getAttribute('aria-pressed') !== pressed) a[i].setAttribute('aria-pressed', pressed);
+    if (a[i].textContent !== b[i].textContent) a[i].textContent = b[i].textContent;
+  }
+  return true;
+}
+
 // Update the play screen in place (keeps focus and avoids canvas churn).
 function refreshPlay() {
   if (screen!=='play' || !state) return;
@@ -1043,17 +1061,22 @@ function refreshPlay() {
   if (el.tick) { clearNode(el.tick); el.tick.appendChild(document.createTextNode(tickText())); }
   if (el.info && el.info.parentNode) { var fresh = infoPanel(); el.info.parentNode.replaceChild(fresh, el.info); el.info = fresh; }
   if (el.tools && el.tools.parentNode) {
-    // Rebuild the palette (costs and affordability change with gold) while
-    // keeping keyboard focus on the same button.
-    var focusIdx = -1;
-    var old = el.tools.querySelectorAll('button');
-    for (var i=0;i<old.length;i++) if (old[i]===document.activeElement) focusIdx = i;
+    // Costs and affordability change with gold, and auto-run refreshes every
+    // tick: while the palette holds the same tools its buttons are updated in
+    // place (a button replaced between press and release loses its click);
+    // it is rebuilt only when the set of tools changes, keeping keyboard
+    // focus on the same button.
     var t = toolButtons();
-    el.tools.parentNode.replaceChild(t, el.tools);
-    el.tools = t;
-    if (focusIdx >= 0) {
-      var fresh2 = t.querySelectorAll('button');
-      if (fresh2[focusIdx]) fresh2[focusIdx].focus();
+    if (!patchPanel(el.tools, t)) {
+      var focusIdx = -1;
+      var old = el.tools.querySelectorAll('button');
+      for (var i=0;i<old.length;i++) if (old[i]===document.activeElement) focusIdx = i;
+      el.tools.parentNode.replaceChild(t, el.tools);
+      el.tools = t;
+      if (focusIdx >= 0) {
+        var fresh2 = t.querySelectorAll('button');
+        if (fresh2[focusIdx]) fresh2[focusIdx].focus();
+      }
     }
   }
   if (el.autoBtn) { clearNode(el.autoBtn); el.autoBtn.appendChild(document.createTextNode(tr(autoTimer ? 'act.stop' : 'act.auto'))); }
