@@ -48,7 +48,7 @@
     "sfx/undo-zip.opus": {"sha256": "dbee90e9e1dadc054a239e40aea1109b9d3a0d20dc08705a29f5a193705d62e2", "size": 15016},
     "sfx/upgrade-servo.opus": {"sha256": "6cba06728fe233998758a2a71ef4138b406245dabf7f4e853ec6b2129dd6b031", "size": 25309},
     "sfx/win-fanfare.opus": {"sha256": "c51c1b78acff73fd6da7c8cb7d2e7aabd6df5d5da28046e962d36a930c3550a9", "size": 39657},
-    "spec.md": {"sha256": "bcf3477ea79547cce2e81a10c963a6d0e1a10f02db052326cada6a1e484efffd", "size": 44406},
+    "spec.md": {"sha256": "fd809d28c5cd508efdc6b236ee72fbde8f742ea8651c606a0904ca28a6c273fd", "size": 44406},
     "starhermit.txt": {"sha256": "8dddd00768cadae322a6f2889a5f6d5773b5d26a3ae2d70722741244ce45b8d2", "size": 2031}
   },
   "excluded": ["node_modules/", "package-lock.json", "package.json", "tests/", "tools/", "tsconfig.json"],

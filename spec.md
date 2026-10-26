@@ -1,6 +1,6 @@
 # Assembly Vale — Game Design Document (running spec)
 
-Assembly Vale is a single-player, turn-tick production puzzle: lay conveyor belts from a mine to the Exchange, drop refining machines on the line, and fill every contract before the tick limit. It is a StarHermit engine script game (engine 1.14.0, host API 1.15): one package that the StarHermit client plays natively and browsers play on the engine's web runtime. This document describes the shipped game as it behaves today. Anything not yet built is listed at the end under "Design intent not yet implemented".
+Assembly Vale is a single-player, turn-tick production puzzle: lay conveyor belts from a mine to the Exchange, drop refining machines on the line, and fill every contract before the tick limit. It is a StarHermit engine script game (engine 1.14.0, host API 1.16): one package that the StarHermit client plays natively and browsers play on the engine's web runtime. This document describes the shipped game as it behaves today. Anything not yet built is listed at the end under "Design intent not yet implemented".
 
 ## 1. Overview
 
@@ -330,7 +330,7 @@ Not used: matchmaking, session invites, chat, replays, server achievements, per-
 - **Frame**: `onUpdate` runs auto-run, the audio pad and the UI build; the board draws inside its widget's draw callback; `onRender` draws the page background. Nothing sizes at load: `frame()` is 0×0 before the first frame.
 - **Performance**: the static terrain is a cached canvas; the moving board is about 2,500 overlay items at most on the largest boards; canvas work happens only on a new stage, tier or window size.
 - **Resilience**: a clip that fails stays silent (and reloads if the mixer lost it); a missing image leaves its box's colour; storage errors keep the session going; hiding the window pauses the round.
-- **Engine requirements**: `engine.minor=15` (host API 1.15: levels, styled boxes, the UI's CSS model, foreign saves and legacy settings).
+- **Engine requirements**: `engine.minor=15` (host API 1.16: levels, styled boxes, the UI's CSS model, foreign saves and legacy settings).
 
 ## 14. Testing and acceptance criteria
 
