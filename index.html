@@ -1,31 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
+<!-- StarHermit web loader, written by starhermit package --web: it pins the engine by hash and holds no script of its own; package again rather than edit it. -->
 <html lang="en">
 <head>
-  <link rel="icon" href="favicon.png" type="image/png">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="color-scheme" content="dark" />
-<meta name="description" content="Assembly Vale — a production optimization game: lay conveyors, refine goods, and fill contracts before the tick limit." />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.png">
 <title>Assembly Vale</title>
-<link rel="stylesheet" href="./css/style.css?v=gfx-1" />
-<script src="game-options.js" data-game="assembly-vale"></script>
-<script src="./ui-scale.js"></script>
-<script src="./starhermit-sdk.js"></script>
-<script src="./js/rng.js?v=gdd-1"></script>
-<script src="./js/rules.js?v=gdd-1"></script>
-<script src="./js/content.js?v=gdd-1"></script>
-<script src="./js/store.js?v=lang-1"></script>
-<script src="./js/platform.js?v=lang-1"></script>
-<script src="./js/audio.js?v=gdd-1"></script>
-<script src="./gpu-level.js"></script>
-<script src="./js/gfx.js?v=gfx-2"></script>
-<script src="./sh-language.js"></script>
-<script src="./js/i18n.js?v=gfx-2"></script>
-<script src="./js/board.js?v=gfx-2"></script>
-<script src="browser-guard.js"></script>
+<style>html,body{margin:0;height:100%;background:#000;color:#eee;font:16px/1.5 system-ui,sans-serif}canvas{display:block;width:100%;height:100%}.starhermit-message{position:fixed;inset:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:#000}.starhermit-message[hidden]{display:none}.starhermit-late{animation:starhermit-late 0s 20s both}@keyframes starhermit-late{from{visibility:hidden}to{visibility:visible}}</style>
+<script type="module" src="https://wiki.starhermit.com/engine/1.13.2/starhermit.js" integrity="sha384-HxYp2pBhy5l2UtOGHfb6oXhcZZu59KtOpGd8EClHcgAAQGZsNvhkXmiLIA9oS6vb" crossorigin="anonymous"></script>
+<script type="application/json" id="starhermit-config">{"manifest":{"integrity":"sha384-m5UWCRKox9Hfw1jBKI41fuaCMHN9rnVEM+rGcE9deeUefBtiRRXBnEbbOW6c3Qx9","url":"https://wiki.starhermit.com/engine/1.13.2/manifest.json"}}</script>
 </head>
 <body>
-<div id="root">Loading…</div>
-<script type="module" src="./js/app.js?v=gfx-2"></script>
+<canvas></canvas>
+<div id="starhermit-status" class="starhermit-message" role="status"><span>Loading Assembly Vale…</span><span class="starhermit-late">If the game has not started, this browser cannot run it or its engine (StarHermit 1.13.2) could not be loaded: reload the page, or open it in a current Chrome, Edge, Firefox or Safari.</span></div>
+<noscript><p class="starhermit-message">This game needs JavaScript.</p></noscript>
 </body>
 </html>
