@@ -11,6 +11,9 @@ click Leave round
 until 60 Score Chase
 click Score Chase
 until 120 Run one tick (Space)
+key Escape 2
+until 30 Restart round
+frames 5
 click Restart round
 until 30 Round started.
 key Escape 2
