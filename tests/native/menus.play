@@ -1,0 +1,43 @@
+# Every menu and mode starts: Daily, Score Chase, a challenge and a practice
+# preset reach the play screen; Back and Escape return; the restart button.
+until 300 Play
+frames 10
+click Daily Challenge
+until 120 Run one tick (Space)
+key Escape 2
+until 30 Leave round
+frames 5
+click Leave round
+until 60 Score Chase
+click Score Chase
+until 120 Run one tick (Space)
+click Restart round
+until 30 Round started.
+key Escape 2
+until 30 Leave round
+frames 5
+click Leave round
+until 60 Challenges
+click Challenges
+until 60 Shoestring — A tight purse: 90 gold, ten ingots.
+click Shoestring
+until 120 Shoestring
+key Escape 2
+until 30 Leave round
+frames 5
+click Leave round
+until 60 Practice
+click Practice
+until 60 Relaxed — No tick limit. Learn the vale at your pace.
+click Veteran
+until 120 Run one tick (Space)
+key Escape 2
+until 30 Leave round
+frames 5
+click Leave round
+until 60 Play
+click Play
+until 60 Choose a mode
+frames 5
+key Escape 2
+until 60 Daily Challenge

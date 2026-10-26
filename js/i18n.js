@@ -1,8 +1,7 @@
 /* Assembly Vale — locale tables for every player-facing string, in the nine
- * shipped locales. The active locale is chosen in app.js through
- * sh-language.js (Settings → Language: explicit choice → StarHermit preferred
- * language → navigator.languages → en-US); `pick` remains the device fallback.
- * UMD: window.AVI18n in the browser, module.exports in Node.
+ * shipped locales. The active locale is the runtime's interface language
+ * (Options › Language, else the device's: native/i18n.ts); `pick` maps a
+ * tag to the nearest table. UMD: globalThis.AVI18n (loadClassic) and Node.
  */
 (function (root, factory) {
   var api = factory();
@@ -28,31 +27,11 @@
     'sh.lbPosting': 'Posting score to the leaderboard…',
     'sh.lbRank': 'Leaderboard rank: #{rank}',
     'sh.lbPosted': 'Score posted to the leaderboard.',
-    'sh.lbNotPosted': 'Score not posted to the leaderboard.',
-    'settings.title': 'Settings',
-    'settings.intro': 'Changes apply immediately and are saved on this device.',
-    'settings.back': 'Back',
-    'gfx.heading': 'Graphics',
-    'gfx.preview': 'Live preview of the board with the current settings',
-    'gfx.quality': 'Quality',
-    'gfx.auto': 'Auto (detected: {tier})',
-    'gfx.preset.low': 'Low', 'gfx.preset.balanced': 'Balanced', 'gfx.preset.high': 'High', 'gfx.preset.ultra': 'Ultra',
-    'gfx.scale': 'Render scale',
-    'gfx.fromPreset': 'From preset ({tier})',
-    'gfx.cat.shadows': 'Shadows', 'gfx.cat.detail': 'Surface detail', 'gfx.cat.bloom': 'Glow (bloom)',
-    'gfx.cat.grade': 'Colour grade and vignette', 'gfx.cat.particles': 'Particles', 'gfx.cat.animation': 'Animation',
-    'gfx.tier.off': 'Off', 'gfx.tier.on': 'On', 'gfx.tier.low': 'Low', 'gfx.tier.medium': 'Medium', 'gfx.tier.high': 'High',
-    'gfx.tier.plain': 'Plain', 'gfx.tier.detailed': 'Detailed', 'gfx.tier.static': 'Static', 'gfx.tier.animated': 'Animated',
-    'gfx.adaptive': 'Adaptive resolution',
-    'gfx.fps': 'Show frame rate',
-    'gfx.summary': '{gpu} · Level {level} · {preset} · cost ×{cost} · {w}×{h} px',
-    'gfx.postNote': 'Some effects could not be drawn on this device, so the board is shown without them.',
-    'gfx.motionNote': 'Reduced motion is on: animation and particles stay off.',
-    'gfx.fpsReadout': '{fps} fps · {ms} ms'
+    'sh.lbNotPosted': 'Score not posted to the leaderboard.'
   };
 
   var T = {
-    'en-US': Object.assign({}, en, { 'gfx.cat.grade': 'Color grade and vignette' }),
+    'en-US': Object.assign({}, en),
     'en-GB': en,
     'es-419': {
       'sh.signIn': 'Iniciar sesión con StarHermit',
@@ -69,21 +48,7 @@
       'sh.lbRank': 'Puesto en la clasificación: #{rank}',
       'sh.lbPosted': 'Puntuación enviada a la clasificación.',
       'sh.lbNotPosted': 'La puntuación no se envió a la clasificación.',
-      'settings.open': 'Configuración', 'settings.title': 'Configuración',
-      'settings.intro': 'Los cambios se aplican al instante y se guardan en este dispositivo.', 'settings.back': 'Volver',
-      'gfx.heading': 'Gráficos', 'gfx.preview': 'Vista previa del tablero con la configuración actual',
-      'gfx.quality': 'Calidad', 'gfx.auto': 'Automática (detectada: {tier})',
-      'gfx.preset.low': 'Baja', 'gfx.preset.balanced': 'Equilibrada', 'gfx.preset.high': 'Alta', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Escala de renderizado', 'gfx.fromPreset': 'Según el ajuste ({tier})',
-      'gfx.cat.shadows': 'Sombras', 'gfx.cat.detail': 'Detalle de superficies', 'gfx.cat.bloom': 'Resplandor (bloom)',
-      'gfx.cat.grade': 'Corrección de color y viñeta', 'gfx.cat.particles': 'Partículas', 'gfx.cat.animation': 'Animación',
-      'gfx.tier.off': 'Desactivado', 'gfx.tier.on': 'Activado', 'gfx.tier.low': 'Bajo', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
-      'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Detallado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
-      'gfx.adaptive': 'Resolución adaptable', 'gfx.fps': 'Mostrar cuadros por segundo',
-      'gfx.summary': '{gpu} · Nivel {level} · {preset} · costo ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Algunos efectos no se pudieron dibujar en este dispositivo, así que el tablero se muestra sin ellos.',
-      'gfx.motionNote': 'El movimiento reducido está activado: la animación y las partículas permanecen desactivadas.',
-      'gfx.fpsReadout': '{fps} FPS · {ms} ms'
+      'settings.open': 'Configuración'
     },
     'es-ES': {
       'sh.signIn': 'Iniciar sesión con StarHermit',
@@ -100,21 +65,7 @@
       'sh.lbRank': 'Puesto en la clasificación: #{rank}',
       'sh.lbPosted': 'Puntuación enviada a la clasificación.',
       'sh.lbNotPosted': 'La puntuación no se envió a la clasificación.',
-      'settings.open': 'Ajustes', 'settings.title': 'Ajustes',
-      'settings.intro': 'Los cambios se aplican al momento y se guardan en este dispositivo.', 'settings.back': 'Volver',
-      'gfx.heading': 'Gráficos', 'gfx.preview': 'Vista previa del tablero con los ajustes actuales',
-      'gfx.quality': 'Calidad', 'gfx.auto': 'Automática (detectada: {tier})',
-      'gfx.preset.low': 'Baja', 'gfx.preset.balanced': 'Equilibrada', 'gfx.preset.high': 'Alta', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Escala de renderizado', 'gfx.fromPreset': 'Según el ajuste ({tier})',
-      'gfx.cat.shadows': 'Sombras', 'gfx.cat.detail': 'Detalle de superficies', 'gfx.cat.bloom': 'Resplandor (bloom)',
-      'gfx.cat.grade': 'Corrección de color y viñeta', 'gfx.cat.particles': 'Partículas', 'gfx.cat.animation': 'Animación',
-      'gfx.tier.off': 'Desactivado', 'gfx.tier.on': 'Activado', 'gfx.tier.low': 'Bajo', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
-      'gfx.tier.plain': 'Sencillo', 'gfx.tier.detailed': 'Detallado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
-      'gfx.adaptive': 'Resolución adaptativa', 'gfx.fps': 'Mostrar fotogramas por segundo',
-      'gfx.summary': '{gpu} · Nivel {level} · {preset} · coste ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Algunos efectos no se han podido dibujar en este dispositivo, así que el tablero se muestra sin ellos.',
-      'gfx.motionNote': 'El movimiento reducido está activado: la animación y las partículas siguen desactivadas.',
-      'gfx.fpsReadout': '{fps} FPS · {ms} ms'
+      'settings.open': 'Ajustes'
     },
     'de-DE': {
       'sh.signIn': 'Mit StarHermit anmelden',
@@ -131,21 +82,7 @@
       'sh.lbRank': 'Platz in der Bestenliste: #{rank}',
       'sh.lbPosted': 'Punktzahl an die Bestenliste gesendet.',
       'sh.lbNotPosted': 'Punktzahl wurde nicht an die Bestenliste gesendet.',
-      'settings.open': 'Einstellungen', 'settings.title': 'Einstellungen',
-      'settings.intro': 'Änderungen gelten sofort und werden auf diesem Gerät gespeichert.', 'settings.back': 'Zurück',
-      'gfx.heading': 'Grafik', 'gfx.preview': 'Live-Vorschau des Spielbretts mit den aktuellen Einstellungen',
-      'gfx.quality': 'Qualität', 'gfx.auto': 'Automatisch (erkannt: {tier})',
-      'gfx.preset.low': 'Niedrig', 'gfx.preset.balanced': 'Ausgewogen', 'gfx.preset.high': 'Hoch', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Renderskalierung', 'gfx.fromPreset': 'Aus Voreinstellung ({tier})',
-      'gfx.cat.shadows': 'Schatten', 'gfx.cat.detail': 'Oberflächendetails', 'gfx.cat.bloom': 'Leuchten (Bloom)',
-      'gfx.cat.grade': 'Farbkorrektur und Vignette', 'gfx.cat.particles': 'Partikel', 'gfx.cat.animation': 'Animation',
-      'gfx.tier.off': 'Aus', 'gfx.tier.on': 'An', 'gfx.tier.low': 'Niedrig', 'gfx.tier.medium': 'Mittel', 'gfx.tier.high': 'Hoch',
-      'gfx.tier.plain': 'Schlicht', 'gfx.tier.detailed': 'Detailliert', 'gfx.tier.static': 'Statisch', 'gfx.tier.animated': 'Animiert',
-      'gfx.adaptive': 'Adaptive Auflösung', 'gfx.fps': 'Bildrate anzeigen',
-      'gfx.summary': '{gpu} · Stufe {level} · {preset} · Aufwand ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Einige Effekte konnten auf diesem Gerät nicht gezeichnet werden, daher wird das Brett ohne sie angezeigt.',
-      'gfx.motionNote': 'Reduzierte Bewegung ist aktiv: Animation und Partikel bleiben aus.',
-      'gfx.fpsReadout': '{fps} FPS · {ms} ms'
+      'settings.open': 'Einstellungen'
     },
     'fr-FR': {
       'sh.signIn': 'Se connecter avec StarHermit',
@@ -162,21 +99,7 @@
       'sh.lbRank': 'Rang au classement : #{rank}',
       'sh.lbPosted': 'Score envoyé au classement.',
       'sh.lbNotPosted': 'Score non envoyé au classement.',
-      'settings.open': 'Paramètres', 'settings.title': 'Paramètres',
-      'settings.intro': 'Les modifications s’appliquent immédiatement et sont enregistrées sur cet appareil.', 'settings.back': 'Retour',
-      'gfx.heading': 'Graphismes', 'gfx.preview': 'Aperçu en direct du plateau avec les paramètres actuels',
-      'gfx.quality': 'Qualité', 'gfx.auto': 'Auto (détectée : {tier})',
-      'gfx.preset.low': 'Basse', 'gfx.preset.balanced': 'Équilibrée', 'gfx.preset.high': 'Haute', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Échelle de rendu', 'gfx.fromPreset': 'Selon le préréglage ({tier})',
-      'gfx.cat.shadows': 'Ombres', 'gfx.cat.detail': 'Détail des surfaces', 'gfx.cat.bloom': 'Halo lumineux (bloom)',
-      'gfx.cat.grade': 'Étalonnage et vignettage', 'gfx.cat.particles': 'Particules', 'gfx.cat.animation': 'Animation',
-      'gfx.tier.off': 'Désactivé', 'gfx.tier.on': 'Activé', 'gfx.tier.low': 'Bas', 'gfx.tier.medium': 'Moyen', 'gfx.tier.high': 'Élevé',
-      'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Détaillé', 'gfx.tier.static': 'Statique', 'gfx.tier.animated': 'Animé',
-      'gfx.adaptive': 'Résolution adaptative', 'gfx.fps': 'Afficher la fréquence d’images',
-      'gfx.summary': '{gpu} · Niveau {level} · {preset} · coût ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Certains effets n’ont pas pu être dessinés sur cet appareil ; le plateau s’affiche sans eux.',
-      'gfx.motionNote': 'Le mouvement réduit est activé : l’animation et les particules restent désactivées.',
-      'gfx.fpsReadout': '{fps} i/s · {ms} ms'
+      'settings.open': 'Paramètres'
     },
     'fr-CA': {
       'sh.signIn': 'Se connecter avec StarHermit',
@@ -193,21 +116,7 @@
       'sh.lbRank': 'Rang au classement : #{rank}',
       'sh.lbPosted': 'Pointage envoyé au classement.',
       'sh.lbNotPosted': 'Pointage non envoyé au classement.',
-      'settings.open': 'Paramètres', 'settings.title': 'Paramètres',
-      'settings.intro': 'Les changements s’appliquent tout de suite et sont enregistrés sur cet appareil.', 'settings.back': 'Retour',
-      'gfx.heading': 'Graphiques', 'gfx.preview': 'Aperçu en direct du plateau avec les paramètres actuels',
-      'gfx.quality': 'Qualité', 'gfx.auto': 'Auto (détectée : {tier})',
-      'gfx.preset.low': 'Basse', 'gfx.preset.balanced': 'Équilibrée', 'gfx.preset.high': 'Haute', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Échelle de rendu', 'gfx.fromPreset': 'Selon le préréglage ({tier})',
-      'gfx.cat.shadows': 'Ombres', 'gfx.cat.detail': 'Détail des surfaces', 'gfx.cat.bloom': 'Lueur (bloom)',
-      'gfx.cat.grade': 'Correction des couleurs et vignette', 'gfx.cat.particles': 'Particules', 'gfx.cat.animation': 'Animation',
-      'gfx.tier.off': 'Désactivé', 'gfx.tier.on': 'Activé', 'gfx.tier.low': 'Bas', 'gfx.tier.medium': 'Moyen', 'gfx.tier.high': 'Élevé',
-      'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Détaillé', 'gfx.tier.static': 'Statique', 'gfx.tier.animated': 'Animé',
-      'gfx.adaptive': 'Résolution adaptative', 'gfx.fps': 'Afficher le nombre d’images par seconde',
-      'gfx.summary': '{gpu} · Niveau {level} · {preset} · coût ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Certains effets n’ont pas pu être affichés sur cet appareil; le plateau s’affiche donc sans eux.',
-      'gfx.motionNote': 'Le mouvement réduit est activé : l’animation et les particules restent désactivées.',
-      'gfx.fpsReadout': '{fps} im/s · {ms} ms'
+      'settings.open': 'Paramètres'
     },
     'pt-BR': {
       'sh.signIn': 'Entrar com a StarHermit',
@@ -224,21 +133,7 @@
       'sh.lbRank': 'Posição no ranking: #{rank}',
       'sh.lbPosted': 'Pontuação enviada ao ranking.',
       'sh.lbNotPosted': 'Pontuação não enviada ao ranking.',
-      'settings.open': 'Configurações', 'settings.title': 'Configurações',
-      'settings.intro': 'As mudanças valem na hora e ficam salvas neste dispositivo.', 'settings.back': 'Voltar',
-      'gfx.heading': 'Gráficos', 'gfx.preview': 'Prévia ao vivo do tabuleiro com as configurações atuais',
-      'gfx.quality': 'Qualidade', 'gfx.auto': 'Automática (detectada: {tier})',
-      'gfx.preset.low': 'Baixa', 'gfx.preset.balanced': 'Equilibrada', 'gfx.preset.high': 'Alta', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Escala de renderização', 'gfx.fromPreset': 'Da predefinição ({tier})',
-      'gfx.cat.shadows': 'Sombras', 'gfx.cat.detail': 'Detalhe das superfícies', 'gfx.cat.bloom': 'Brilho (bloom)',
-      'gfx.cat.grade': 'Correção de cor e vinheta', 'gfx.cat.particles': 'Partículas', 'gfx.cat.animation': 'Animação',
-      'gfx.tier.off': 'Desligado', 'gfx.tier.on': 'Ligado', 'gfx.tier.low': 'Baixo', 'gfx.tier.medium': 'Médio', 'gfx.tier.high': 'Alto',
-      'gfx.tier.plain': 'Simples', 'gfx.tier.detailed': 'Detalhado', 'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado',
-      'gfx.adaptive': 'Resolução adaptativa', 'gfx.fps': 'Mostrar taxa de quadros',
-      'gfx.summary': '{gpu} · Nível {level} · {preset} · custo ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Alguns efeitos não puderam ser desenhados neste dispositivo, então o tabuleiro aparece sem eles.',
-      'gfx.motionNote': 'Movimento reduzido está ativado: animação e partículas ficam desligadas.',
-      'gfx.fpsReadout': '{fps} FPS · {ms} ms'
+      'settings.open': 'Configurações'
     },
     'it-IT': {
       'sh.signIn': 'Accedi con StarHermit',
@@ -255,21 +150,7 @@
       'sh.lbRank': 'Posizione in classifica: #{rank}',
       'sh.lbPosted': 'Punteggio inviato alla classifica.',
       'sh.lbNotPosted': 'Punteggio non inviato alla classifica.',
-      'settings.open': 'Impostazioni', 'settings.title': 'Impostazioni',
-      'settings.intro': 'Le modifiche si applicano subito e vengono salvate su questo dispositivo.', 'settings.back': 'Indietro',
-      'gfx.heading': 'Grafica', 'gfx.preview': 'Anteprima dal vivo del tabellone con le impostazioni attuali',
-      'gfx.quality': 'Qualità', 'gfx.auto': 'Automatica (rilevata: {tier})',
-      'gfx.preset.low': 'Bassa', 'gfx.preset.balanced': 'Bilanciata', 'gfx.preset.high': 'Alta', 'gfx.preset.ultra': 'Ultra',
-      'gfx.scale': 'Scala di rendering', 'gfx.fromPreset': 'Dal preset ({tier})',
-      'gfx.cat.shadows': 'Ombre', 'gfx.cat.detail': 'Dettaglio delle superfici', 'gfx.cat.bloom': 'Bagliore (bloom)',
-      'gfx.cat.grade': 'Correzione colore e vignettatura', 'gfx.cat.particles': 'Particelle', 'gfx.cat.animation': 'Animazione',
-      'gfx.tier.off': 'Disattivato', 'gfx.tier.on': 'Attivo', 'gfx.tier.low': 'Basso', 'gfx.tier.medium': 'Medio', 'gfx.tier.high': 'Alto',
-      'gfx.tier.plain': 'Semplice', 'gfx.tier.detailed': 'Dettagliato', 'gfx.tier.static': 'Statico', 'gfx.tier.animated': 'Animato',
-      'gfx.adaptive': 'Risoluzione adattiva', 'gfx.fps': 'Mostra fotogrammi al secondo',
-      'gfx.summary': '{gpu} · Livello {level} · {preset} · costo ×{cost} · {w}×{h} px',
-      'gfx.postNote': 'Alcuni effetti non possono essere disegnati su questo dispositivo, quindi il tabellone viene mostrato senza.',
-      'gfx.motionNote': 'Il movimento ridotto è attivo: animazione e particelle restano disattivate.',
-      'gfx.fpsReadout': '{fps} FPS · {ms} ms'
+      'settings.open': 'Impostazioni'
     }
   };
 
@@ -338,10 +219,6 @@
     'ev.placeBelt': 'Built a belt.', 'ev.placeMachine': 'Built a machine.', 'ev.removeBelt': 'Removed a belt.', 'ev.removeMachine': 'Removed a machine.',
     'ev.rotate': 'Rotated to face {dir}.', 'ev.upgrade': 'Upgraded to level {n}.', 'ev.deliver': 'Sold {good} for {n} gold.',
     'ev.contract': 'Contract complete: {good}.', 'ev.spoil': '{good} was lost.', 'ev.win': 'All contracts complete.', 'ev.lose': 'The round ended.',
-    'cap.tool selected': 'tool selected', 'cap.build': 'build', 'cap.remove': 'remove', 'cap.rotate': 'rotate', 'cap.upgrade': 'upgrade',
-    'cap.not allowed': 'not allowed', 'cap.crafted': 'crafted', 'cap.sale': 'sale', 'cap.contract complete': 'contract complete',
-    'cap.goods lost': 'goods lost', 'cap.contracts complete': 'contracts complete', 'cap.round lost': 'round lost', 'cap.undo': 'undo',
-    'cap.hint': 'hint', 'cap.auto-run': 'auto-run',
     // content
     'rec.smelt': 'Smelter', 'rec.press': 'Press', 'rec.saw': 'Sawmill', 'rec.carpentry': 'Workshop', 'rec.weave': 'Loom', 'rec.tailor': 'Tailor',
     'good.ore': 'Ore', 'good.ingot': 'Ingot', 'good.plate': 'Plate', 'good.timber': 'Timber', 'good.plank': 'Plank', 'good.frame': 'Frame',
@@ -437,10 +314,6 @@
     'ev.placeBelt': 'Cinta construida.', 'ev.placeMachine': 'Máquina construida.', 'ev.removeBelt': 'Cinta retirada.', 'ev.removeMachine': 'Máquina retirada.',
     'ev.rotate': 'Girado hacia el {dir}.', 'ev.upgrade': 'Mejorado a nivel {n}.', 'ev.deliver': '{good} vendido por {n} de oro.',
     'ev.contract': 'Contrato cumplido: {good}.', 'ev.spoil': 'Se perdió {good}.', 'ev.win': 'Todos los contratos cumplidos.', 'ev.lose': 'La ronda terminó.',
-    'cap.tool selected': 'herramienta elegida', 'cap.build': 'construcción', 'cap.remove': 'retirada', 'cap.rotate': 'giro', 'cap.upgrade': 'mejora',
-    'cap.not allowed': 'no permitido', 'cap.crafted': 'fabricado', 'cap.sale': 'venta', 'cap.contract complete': 'contrato cumplido',
-    'cap.goods lost': 'bienes perdidos', 'cap.contracts complete': 'contratos cumplidos', 'cap.round lost': 'ronda perdida', 'cap.undo': 'deshacer',
-    'cap.hint': 'pista', 'cap.auto-run': 'avance automático',
     'rec.smelt': 'Fundición', 'rec.press': 'Prensa', 'rec.saw': 'Aserradero', 'rec.carpentry': 'Taller', 'rec.weave': 'Telar', 'rec.tailor': 'Sastrería',
     'good.ore': 'Mineral', 'good.ingot': 'Lingote', 'good.plate': 'Chapa', 'good.timber': 'Madera', 'good.plank': 'Tablón', 'good.frame': 'Bastidor',
     'good.wool': 'Lana', 'good.cloth': 'Tela', 'good.garment': 'Prenda',
@@ -539,10 +412,6 @@
     'ev.placeBelt': 'Band gebaut.', 'ev.placeMachine': 'Maschine gebaut.', 'ev.removeBelt': 'Band abgerissen.', 'ev.removeMachine': 'Maschine abgerissen.',
     'ev.rotate': 'Nach {dir} gedreht.', 'ev.upgrade': 'Auf Stufe {n} verbessert.', 'ev.deliver': '{good} für {n} Gold verkauft.',
     'ev.contract': 'Auftrag erfüllt: {good}.', 'ev.spoil': '{good} ging verloren.', 'ev.win': 'Alle Aufträge erfüllt.', 'ev.lose': 'Die Runde ist zu Ende.',
-    'cap.tool selected': 'Werkzeug gewählt', 'cap.build': 'gebaut', 'cap.remove': 'abgerissen', 'cap.rotate': 'gedreht', 'cap.upgrade': 'verbessert',
-    'cap.not allowed': 'nicht erlaubt', 'cap.crafted': 'hergestellt', 'cap.sale': 'Verkauf', 'cap.contract complete': 'Auftrag erfüllt',
-    'cap.goods lost': 'Waren verloren', 'cap.contracts complete': 'Aufträge erfüllt', 'cap.round lost': 'Runde verloren', 'cap.undo': 'rückgängig',
-    'cap.hint': 'Tipp', 'cap.auto-run': 'Automatik',
     'rec.smelt': 'Schmelze', 'rec.press': 'Presse', 'rec.saw': 'Sägewerk', 'rec.carpentry': 'Werkstatt', 'rec.weave': 'Webstuhl', 'rec.tailor': 'Schneiderei',
     'good.ore': 'Erz', 'good.ingot': 'Barren', 'good.plate': 'Blech', 'good.timber': 'Holz', 'good.plank': 'Brett', 'good.frame': 'Rahmen',
     'good.wool': 'Wolle', 'good.cloth': 'Stoff', 'good.garment': 'Kleidung',
@@ -632,10 +501,6 @@
     'ev.placeBelt': 'Convoyeur construit.', 'ev.placeMachine': 'Machine construite.', 'ev.removeBelt': 'Convoyeur démoli.', 'ev.removeMachine': 'Machine démolie.',
     'ev.rotate': 'Orienté vers {dir}.', 'ev.upgrade': 'Amélioré au niveau {n}.', 'ev.deliver': '{good} vendu pour {n} or.',
     'ev.contract': 'Contrat rempli : {good}.', 'ev.spoil': '{good} perdu.', 'ev.win': 'Tous les contrats sont remplis.', 'ev.lose': 'La manche est terminée.',
-    'cap.tool selected': 'outil choisi', 'cap.build': 'construction', 'cap.remove': 'démolition', 'cap.rotate': 'rotation', 'cap.upgrade': 'amélioration',
-    'cap.not allowed': 'non autorisé', 'cap.crafted': 'fabriqué', 'cap.sale': 'vente', 'cap.contract complete': 'contrat rempli',
-    'cap.goods lost': 'biens perdus', 'cap.contracts complete': 'contrats remplis', 'cap.round lost': 'manche perdue', 'cap.undo': 'annulation',
-    'cap.hint': 'indice', 'cap.auto-run': 'lecture auto',
     'rec.smelt': 'Fonderie', 'rec.press': 'Presse', 'rec.saw': 'Scierie', 'rec.carpentry': 'Atelier', 'rec.weave': 'Métier à tisser', 'rec.tailor': 'Couturier',
     'good.ore': 'Minerai', 'good.ingot': 'Lingot', 'good.plate': 'Tôle', 'good.timber': 'Bois', 'good.plank': 'Planche', 'good.frame': 'Cadre',
     'good.wool': 'Laine', 'good.cloth': 'Étoffe', 'good.garment': 'Vêtement',
@@ -729,10 +594,6 @@
     'ev.placeBelt': 'Esteira construída.', 'ev.placeMachine': 'Máquina construída.', 'ev.removeBelt': 'Esteira removida.', 'ev.removeMachine': 'Máquina removida.',
     'ev.rotate': 'Girado para {dir}.', 'ev.upgrade': 'Melhorado para o nível {n}.', 'ev.deliver': '{good} vendido por {n} de ouro.',
     'ev.contract': 'Contrato cumprido: {good}.', 'ev.spoil': '{good} se perdeu.', 'ev.win': 'Todos os contratos cumpridos.', 'ev.lose': 'A rodada terminou.',
-    'cap.tool selected': 'ferramenta escolhida', 'cap.build': 'construção', 'cap.remove': 'remoção', 'cap.rotate': 'giro', 'cap.upgrade': 'melhoria',
-    'cap.not allowed': 'não permitido', 'cap.crafted': 'fabricado', 'cap.sale': 'venda', 'cap.contract complete': 'contrato cumprido',
-    'cap.goods lost': 'bens perdidos', 'cap.contracts complete': 'contratos cumpridos', 'cap.round lost': 'rodada perdida', 'cap.undo': 'desfazer',
-    'cap.hint': 'dica', 'cap.auto-run': 'avanço automático',
     'rec.smelt': 'Fundição', 'rec.press': 'Prensa', 'rec.saw': 'Serraria', 'rec.carpentry': 'Oficina', 'rec.weave': 'Tear', 'rec.tailor': 'Alfaiataria',
     'good.ore': 'Minério', 'good.ingot': 'Lingote', 'good.plate': 'Chapa', 'good.timber': 'Tora', 'good.plank': 'Tábua', 'good.frame': 'Armação',
     'good.wool': 'Lã', 'good.cloth': 'Tecido', 'good.garment': 'Roupa',
@@ -822,10 +683,6 @@
     'ev.placeBelt': 'Nastro costruito.', 'ev.placeMachine': 'Macchina costruita.', 'ev.removeBelt': 'Nastro rimosso.', 'ev.removeMachine': 'Macchina rimossa.',
     'ev.rotate': 'Ruotato verso {dir}.', 'ev.upgrade': 'Potenziato al livello {n}.', 'ev.deliver': '{good} venduto per {n} d’oro.',
     'ev.contract': 'Contratto completato: {good}.', 'ev.spoil': '{good} è andato perso.', 'ev.win': 'Tutti i contratti completati.', 'ev.lose': 'La partita è finita.',
-    'cap.tool selected': 'strumento scelto', 'cap.build': 'costruzione', 'cap.remove': 'rimozione', 'cap.rotate': 'rotazione', 'cap.upgrade': 'potenziamento',
-    'cap.not allowed': 'non consentito', 'cap.crafted': 'prodotto', 'cap.sale': 'vendita', 'cap.contract complete': 'contratto completato',
-    'cap.goods lost': 'merci perse', 'cap.contracts complete': 'contratti completati', 'cap.round lost': 'partita persa', 'cap.undo': 'annulla',
-    'cap.hint': 'suggerimento', 'cap.auto-run': 'avanzamento automatico',
     'rec.smelt': 'Fonderia', 'rec.press': 'Pressa', 'rec.saw': 'Segheria', 'rec.carpentry': 'Laboratorio', 'rec.weave': 'Telaio', 'rec.tailor': 'Sartoria',
     'good.ore': 'Minerale', 'good.ingot': 'Lingotto', 'good.plate': 'Lamiera', 'good.timber': 'Legname', 'good.plank': 'Tavola', 'good.frame': 'Telaio in legno',
     'good.wool': 'Lana', 'good.cloth': 'Stoffa', 'good.garment': 'Abito',

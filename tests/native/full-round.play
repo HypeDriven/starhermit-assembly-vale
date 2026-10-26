@@ -1,0 +1,47 @@
+# A whole round of Journey stage 1 (First Ford) to the results screen, driving
+# the real UI: the pointer through the menus, then the board by keyboard (the
+# selection starts on the ore mine; arrows move it, Enter builds a belt facing
+# the Exchange), then auto-run (A) until every contract line is filled. Then
+# Next stage starts stage 2.
+until 300 Play
+frames 10
+click Play
+until 60 Choose a mode
+click Journey
+until 60 First Ford
+click First Ford
+until 120 Run one tick (Space)
+frames 5
+key ArrowRight 2
+frames 2
+key Enter 2
+until 30 Built a belt.
+expect Gold: 54
+key ArrowRight 2
+frames 2
+key Enter 2
+frames 2
+key ArrowRight 2
+frames 2
+key Enter 2
+frames 2
+key ArrowRight 2
+frames 2
+key Enter 2
+frames 2
+key ArrowDown 2
+frames 2
+key Enter 2
+frames 2
+key ArrowRight 2
+frames 2
+key Enter 2
+until 30 Tick: 6 / 120
+expect Gold: 24
+key KeyA 2
+until 30 Stop auto-run (A)
+until 1800 Contracts complete
+expect Score: 400
+expect Ticks used: 32 / 120
+click Next stage
+until 120 Around the Rock

@@ -1,9 +1,22 @@
 name=Assembly Vale
 description=Build conveyor routes and refining machines to fulfill factory contracts within a limited number of ticks.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=score-script.js
 cover=cover.jpg
+
+# StarHermit engine script game: one package, two runtimes. Browsers open
+# launch=index.html, the web loader `npm run package` writes (it pins the
+# engine on wiki.starhermit.com by hash; never edit it); the StarHermit client
+# plays engine.entry natively. Re-run `npm run package` after every change and
+# commit index.html + starhermit-files.json (spec.md §13).
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.13.2
+engine.minor=15
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard controls (players rebind keys and pads in the runtime's Options).
 control.left=ArrowLeft | Move selection left
 control.right=ArrowRight | Move selection right
 control.up=ArrowUp | Move selection up
@@ -19,3 +32,24 @@ control.upgrade=KeyU | Upgrade tool
 control.hint=KeyH | Hint
 control.undo=KeyZ | Undo
 control.pause=KeyP+Escape | Pause
+engine.group.left=Board
+engine.group.tick=Simulation
+engine.group.belt=Tools
+engine.group.hint=Assists
+
+# Gamepad defaults for the same actions.
+engine.gamepad.left=DpadLeft+LeftStickLeft
+engine.gamepad.right=DpadRight+LeftStickRight
+engine.gamepad.up=DpadUp+LeftStickUp
+engine.gamepad.down=DpadDown+LeftStickDown
+engine.gamepad.build=South
+engine.gamepad.tick=North
+engine.gamepad.auto=West
+engine.gamepad.belt=LeftShoulder
+engine.gamepad.machine=RightShoulder
+engine.gamepad.rotate=RightTrigger
+engine.gamepad.remove=LeftTrigger
+engine.gamepad.upgrade=RightStickPress
+engine.gamepad.hint=Select
+engine.gamepad.undo=LeftStickPress
+engine.gamepad.pause=Start

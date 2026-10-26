@@ -1,0 +1,55 @@
+# The play screen's actions: a click on the board (the Exchange's $) with the
+# belt tool is refused with its reason; tool keys (R, X) and buttons; Hint (H)
+# selects the hinted cell; one tick (Space); Pause (Escape) and resume (P);
+# the Sound toggle; How to play and back (Escape); Undo in a lesson; leaving
+# to the title from the pause menu.
+until 300 Play
+frames 10
+click Lessons (Learn)
+until 60 Lay the line
+click Lay the line
+until 120 Run one tick (Space)
+frames 5
+click $
+until 30 That cell is already occupied.
+key KeyR 2
+until 30 Tool: rotate
+click Remove
+until 30 Tool: remove
+key KeyB 2
+until 30 Tool: belt
+key ArrowLeft 2
+frames 2
+key Enter 2
+until 30 Built a belt.
+key KeyZ 2
+until 30 Undid the last action.
+expect Tick: 0
+key KeyZ 2
+until 30 Nothing to undo.
+key Space 2
+until 30 Tick: 1
+key KeyH 2
+until 30 Keep delivering goods
+key Escape 2
+until 30 The simulation is stopped.
+frames 5
+click Sound: on
+until 30 Sound: off
+click Sound: off
+until 30 Sound: on
+click How to play
+until 30 Goods ride conveyor belts
+frames 5
+key Escape 2
+until 30 Run one tick (Space)
+frames 5
+key KeyP 2
+until 30 Resume
+key KeyP 2
+until 30 Run one tick (Space)
+key Escape 2
+until 30 Leave round
+frames 5
+click Leave round
+until 60 Daily Challenge

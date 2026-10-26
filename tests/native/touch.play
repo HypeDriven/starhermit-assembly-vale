@@ -1,0 +1,15 @@
+# Touch: a finger plays the menus and the board (tapping the Exchange's $
+# with the belt tool is refused with its reason), and a tool button.
+until 300 Play
+frames 10
+touch Journey
+until 60 First Ford
+touch First Ford
+until 120 Run one tick (Space)
+frames 5
+touch $
+until 30 That cell is already occupied.
+touch Rotate
+until 30 Tool: rotate
+touch Run one tick (Space)
+until 30 Tick: 1 / 120

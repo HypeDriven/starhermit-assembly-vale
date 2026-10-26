@@ -1,0 +1,88 @@
+/* Assembly Vale — the UI's look for starhermit:ui: the browser build's
+ * css/style.css rewritten class-based (its element selectors h1, h2, p,
+ * button, ul/li, footer, hr are classes here; its media queries are
+ * native/screens.ts's layout by window size; the Settings / Graphics panel,
+ * the FPS readout and the canvases are gone: the runtime's Options menu and
+ * native/board.ts). Converted once with
+ *   npm run css   (starhermit css tools/ui-style.css --out assets/ui-style.json)
+ * and registered at start (native/style.ts). */
+* { box-sizing: border-box; }
+:root {
+  --bg: #101a14;
+  --bg-panel: #1b2a21;
+  --bg-panel-2: #24382b;
+  --ink: #eef6ee;
+  --ink-dim: #b7c9ba;
+  --accent: #ffd166;
+  --accent-ink: #20180a;
+  --line: #3c5a45;
+  --good: #7fd48f;
+  --bad: #ff9b8a;
+}
+
+.av-page { background: radial-gradient(farthest-corner at 50% 0%, #1b2c22 0%, #101a14 70%); }
+.av-h1 { font-size: 40px; font-weight: 700; letter-spacing: 0.4px; color: var(--ink); }
+.av-h2 { font-size: 24px; font-weight: 700; color: var(--ink); }
+.av-p { font-size: 16px; color: var(--ink-dim); }
+.av-li { font-size: 16px; color: var(--ink-dim); }
+.av-small { font-size: 14px; color: var(--ink-dim); }
+
+/* ---------- buttons ---------- */
+.av-btn {
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 44px;
+  text-align: left;
+}
+.av-btn:hover { background: #2f4838; }
+.av-btn:active { translate: 0 1px; }
+.av-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.av-primary { background: var(--accent); color: var(--accent-ink); border: 1px solid #d8ae4c; font-weight: 600; }
+.av-primary:hover { background: #ffdf90; }
+.av-big { font-size: 16.3px; }
+.av-tool { font-size: 16px; color: var(--ink); background: var(--bg-panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-height: 44px; text-align: left; }
+.av-tool:hover { background: #2f4838; }
+.av-tool.active { background: var(--accent); color: var(--accent-ink); border: 1px solid #d8ae4c; font-weight: 600; }
+.av-tool:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.av-poor { opacity: 0.62; }
+
+/* ---------- illustrations ---------- */
+.av-art { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel); }
+.av-keyart { background: #1b2a21 url("../assets/keyart.webp") center / cover no-repeat; border: 1px solid var(--line); border-radius: 12px; }
+.av-helpart { background: #1b2a21 url("../assets/help-line.webp") center / cover no-repeat; border: 1px solid var(--line); border-radius: 12px; }
+.av-ledger { background: #1b2a21 url("../assets/exchange-ledger.webp") center / cover no-repeat; border: 1px solid var(--line); border-radius: 12px; }
+.av-ledger-lost { background: #1b2a21 url("../assets/exchange-ledger.webp") center / cover no-repeat; border: 1px solid var(--line); border-radius: 12px; opacity: 0.7; }
+
+/* ---------- play screen ---------- */
+.av-head { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.av-pill {
+  background: var(--bg-panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 12px; font-size: 16px; color: var(--ink);
+}
+.av-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.av-hr { background: var(--line); height: 1px; }
+.av-row { font-size: 16px; color: var(--ink); }
+.av-dim { font-size: 14.7px; color: var(--ink-dim); }
+.av-done { font-size: 16px; color: var(--good); font-weight: 600; }
+.av-lesson { font-size: 16px; color: var(--ink-dim); }
+.av-board { border: 1px solid var(--line); border-radius: 10px; background: #24382b; }
+.av-legend { font-size: 13.6px; color: var(--ink-dim); }
+.av-swatch { border-radius: 3px; border: 1px solid rgba(0,0,0,0.4); }
+.av-foot { border-top: 1px solid var(--line); padding-top: 10px; }
+.av-status { font-size: 16px; color: var(--accent); }
+.av-hint { font-size: 14px; color: var(--ink-dim); }
+
+/* StarHermit invite confirmation */
+.av-toast {
+  padding: 10px 16px; background: var(--bg-panel-2); color: var(--ink);
+  border: 1px solid var(--accent); border-radius: 8px; font-size: 15.2px; text-align: center;
+}

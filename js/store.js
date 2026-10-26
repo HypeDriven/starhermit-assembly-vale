@@ -1,31 +1,38 @@
-/* Assembly Vale — persistence: versioned, checksummed local save document.
- * Never stores credentials or tokens. Browser global: window.AVStore.
- */
+/* Assembly Vale — the save document (pure: no storage, no DOM).
+ * { v: 1, settings, progress }: the progress (lessons done, Journey stars and
+ * bests, challenge bests, dailies, Score Chase best, counters) is the game's
+ * save (native/save.ts keeps it in starhermit:storage `saves`, on the device
+ * and in the account's cloud slot). The browser build wrote the same document
+ * wrapped as { sum, payload } (an FNV-1a checksum over the JSON payload) into
+ * the cloud slot game:<slug> (the JS SDK's zipped save.json): `loadRaw` reads
+ * that text, so an old cloud save migrates by `mergeDocs(loadRaw(text), doc)`.
+ * Settings in the document are the browser build's; on the engine the
+ * runtime's Options hold sound, graphics and motion, and only the progress is
+ * saved. UMD: globalThis.AVStore (loadClassic) and Node (require). */
 (function (root, factory) {
-  var api = factory(root);
+  var api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.AVStore = api;
-})(typeof self !== 'undefined' ? self : this, function (root) {
+})(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
   var SAVE_VERSION = 1;
-  var KEY = 'assemblyvale.save.v1';
-  var LB_KEY = 'assemblyvale.leaderboards.v1';
 
+  // The browser build's settings (kept so old documents migrate field by field).
   var DEFAULT_SETTINGS = {
     music: 0.55, effects: 0.9, ambience: 0.5, voice: 0.8,
     muted: false, captions: false,
-    graphicsTier: 'auto',       // auto | low | medium | high
-    theme: 'meadow',            // cosmetic override for free modes
+    graphicsTier: 'auto',
+    theme: 'meadow',
     reducedMotion: false,
     highContrast: false,
-    colorPalette: 'standard',   // standard | high-visibility
+    colorPalette: 'standard',
     largeText: false,
     leftHanded: false,
-    simSpeed: 1,                // 1 | 2 | 4 ticks pace multiplier
+    simSpeed: 1,
     haptics: true,
-    boardMirror: false,         // always-visible DOM board
-    confirmBuilds: false        // timing assistance: tap target again to confirm
+    boardMirror: false,
+    confirmBuilds: false
   };
 
   function defaultProgress() {
@@ -43,20 +50,25 @@
     };
   }
 
-  function checksum(str) { // FNV-1a, decimal string
+  function checksum(str) { // FNV-1a, base 36
     var h = 0x811c9dc5;
     for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
     return (h >>> 0).toString(36);
   }
 
+  function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+
   function migrate(doc) {
     // v1 is current; older shapes are upgraded field-by-field here.
-    if (!doc || typeof doc !== 'object') return null;
+    if (!isObj(doc)) return null;
     if (doc.v > SAVE_VERSION) return null; // future format: don't clobber
     doc.v = SAVE_VERSION;
-    doc.settings = Object.assign({}, DEFAULT_SETTINGS, doc.settings || {});
-    doc.progress = Object.assign(defaultProgress(), doc.progress || {});
-    doc.progress.stats = Object.assign(defaultProgress().stats, doc.progress.stats || {});
+    doc.settings = Object.assign({}, DEFAULT_SETTINGS, isObj(doc.settings) ? doc.settings : {});
+    doc.progress = Object.assign(defaultProgress(), isObj(doc.progress) ? doc.progress : {});
+    doc.progress.stats = Object.assign(defaultProgress().stats, isObj(doc.progress.stats) ? doc.progress.stats : {});
+    ['tutorialDone', 'journeyStars', 'journeyBest', 'challengeBest', 'dailiesDone', 'achievements'].forEach(function (k) {
+      if (!isObj(doc.progress[k])) doc.progress[k] = {};
+    });
     return doc;
   }
 
@@ -64,11 +76,18 @@
     return { v: SAVE_VERSION, settings: Object.assign({}, DEFAULT_SETTINGS), progress: defaultProgress() };
   }
 
-  var memoryFallback = null; // used when localStorage is unavailable
+  /** A document from the engine save's data ({ v, progress }), or a fresh one. */
+  function fromData(data) {
+    return migrate(isObj(data) ? JSON.parse(JSON.stringify(data)) : null) || fresh();
+  }
 
-  // Parses a wrapped {sum, payload} string into a migrated doc; null if the
-  // checksum fails or the shape is unrecognizable. Used for both the local
-  // cache and the cloud mirror (remote-preferred load goes through here).
+  /** What the engine save keeps: the version and the progress. */
+  function toData(doc) {
+    return { v: SAVE_VERSION, progress: JSON.parse(JSON.stringify(doc.progress)) };
+  }
+
+  /** The browser build's wrapped {sum, payload} text → a migrated document;
+   * null if the checksum fails or the shape is unrecognizable. */
   function loadRaw(raw) {
     if (raw == null) return null;
     try {
@@ -78,28 +97,15 @@
     } catch (e) { return null; }
   }
 
-  function load() {
-    var raw = null;
-    try { raw = localStorage.getItem(KEY); } catch (e) { /* private mode */ }
-    if (raw == null && memoryFallback) raw = memoryFallback;
-    var doc = loadRaw(raw);
-    return doc || fresh();
-  }
-
-  function save(doc) {
-    doc.v = SAVE_VERSION;
+  /** The browser build's wrapping of a document (tests write old saves with it). */
+  function wrap(doc) {
     var payload = JSON.stringify(doc);
-    var wrapped = JSON.stringify({ sum: checksum(payload), payload: payload });
-    memoryFallback = wrapped;
-    try { localStorage.setItem(KEY, wrapped); } catch (e) { /* memory fallback keeps session */ }
-    if (root.AVPlatform && typeof root.AVPlatform.onLocalSave === 'function')
-      root.AVPlatform.onLocalSave(wrapped); // host adapter mirrors to the cloud slot
+    return JSON.stringify({ sum: checksum(payload), payload: payload });
   }
 
-  // Another device saved the cloud slot since this one loaded it: combine the
-  // two documents so neither side's progress is lost. Records keep the better
-  // value (stars, best scores, counters, latest daily), unlock maps are
-  // unioned, and this device's settings win.
+  // Two devices' documents as one so neither side's progress is lost.
+  // Records keep the better value (stars, best scores, counters, latest
+  // daily), unlock maps are unioned, and the local settings win.
   function mergeDocs(remote, local) {
     var r = migrate(remote ? JSON.parse(JSON.stringify(remote)) : null);
     var l = migrate(local ? JSON.parse(JSON.stringify(local)) : null);
@@ -128,34 +134,48 @@
     return out;
   }
 
-  // ---------- leaderboards (local; host adapter may sync) ----------
-  function loadBoards() {
-    try {
-      var raw = localStorage.getItem(LB_KEY);
-      return raw ? JSON.parse(raw) : { entries: [] };
-    } catch (e) { return { entries: [] }; }
-  }
-  function saveBoards(b) {
-    try { localStorage.setItem(LB_KEY, JSON.stringify(b)); } catch (e) {}
+  /** One star for the win, one for beating par ticks, one for spare gold. */
+  function starsFor(state) {
+    var stars = 1;
+    var par = (state.cfg.par && state.cfg.par.ticks) || 0;
+    if (par && state.tick <= par) stars++;
+    if (state.gold >= state.cfg.gold) stars++;
+    return stars;
   }
 
-  // Ties: contract completion, higher score, fewer invalid actions, lower
-  // elapsed, then stable session id. Returns sorted copy.
-  function sortEntries(entries) {
-    return entries.slice().sort(function (a, b) {
-      if ((b.won ? 1 : 0) !== (a.won ? 1 : 0)) return (b.won ? 1 : 0) - (a.won ? 1 : 0);
-      if (b.score !== a.score) return b.score - a.score;
-      if ((a.invalid || 0) !== (b.invalid || 0)) return (a.invalid || 0) - (b.invalid || 0);
-      if ((a.durationMs || 0) !== (b.durationMs || 0)) return (a.durationMs || 0) - (b.durationMs || 0);
-      return String(a.sessionId).localeCompare(String(b.sessionId));
-    });
+  /** Records a finished round into the progress (prog is changed in place).
+   * kind: the session kind (journey, challenge, daily, score-chase, learn,
+   * practice); day: the UTC date of a daily. */
+  function recordResult(prog, state, kind, day) {
+    var s = prog.stats, total = state.score.total, id = state.cfg.id, won = !!(state.terminal && state.terminal.won);
+    s.rounds++;
+    if (won) s.wins++;
+    for (var g in state.sold) s.goodsSold += state.sold[g];
+    for (var c in state.contractDone) if (state.contractDone[c]) s.contractsDone++;
+    s.buildingsPlaced += state.builds;
+    if (total > s.bestScore) s.bestScore = total;
+    if (kind === 'journey') {
+      if (!prog.journeyBest[id] || total > prog.journeyBest[id]) prog.journeyBest[id] = total;
+      if (won) prog.journeyStars[id] = Math.max(prog.journeyStars[id] || 0, starsFor(state));
+    } else if (kind === 'challenge') {
+      if (!prog.challengeBest[id] || total > prog.challengeBest[id]) prog.challengeBest[id] = total;
+    } else if (kind === 'daily') {
+      if (!prog.dailiesDone[day] || total > prog.dailiesDone[day]) prog.dailiesDone[day] = total;
+      s.lastDaily = day;
+    } else if (kind === 'score-chase' || kind === 'score') {
+      if (total > prog.scoreChaseBest) prog.scoreChaseBest = total;
+    } else if (kind === 'learn' && won && state.cfg.lesson) {
+      prog.tutorialDone[state.cfg.lesson.id] = true;
+    }
+    return prog;
   }
 
   return {
     SAVE_VERSION: SAVE_VERSION,
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
-    load: load, save: save, fresh: fresh, migrate: migrate,
-    checksum: checksum, loadRaw: loadRaw, mergeDocs: mergeDocs,
-    loadBoards: loadBoards, saveBoards: saveBoards, sortEntries: sortEntries
+    defaultProgress: defaultProgress,
+    fresh: fresh, migrate: migrate, fromData: fromData, toData: toData,
+    checksum: checksum, loadRaw: loadRaw, wrap: wrap, mergeDocs: mergeDocs,
+    starsFor: starsFor, recordResult: recordResult
   };
 });
