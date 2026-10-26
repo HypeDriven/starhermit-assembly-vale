@@ -42,6 +42,7 @@ let failed = false;
 const views = [
   { name: 'desktop', viewport: { width: 1366, height: 768 } },
   { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 },
+  { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 },
 ];
 try {
   for (const v of views) {

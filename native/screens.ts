@@ -63,7 +63,9 @@ function button(b: Btn, width: number | null): void {
   const s: ui.Style = width != null ? { width } : {};
   if (width != null && buttonWidth(b.text, style) > width) {
     const inner = width - 30;
-    opts.content = () => { ui.paragraph(b.text, inner); };
+    // (a face's paragraph takes the button's colour, not its weight)
+    const bold = style.includes("av-primary") || (b.selected === true && style.includes("av-tool"));
+    opts.content = () => { ui.paragraph(b.text, inner, bold ? { weight: "600" } : {}); };
   }
   if (ui.style(...style, s).id(b.id).button(b.text, opts)) b.act();
 }
