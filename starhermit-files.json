@@ -9,7 +9,7 @@
     "coverart.png": {"sha256": "36764a5738c356c2bd684ccd50d35e4f17a72a6980ce57858e0343135654ca67", "size": 341407},
     "favicon.png": {"sha256": "5afa371f9eed26e7a9bcb7dafbd8be66500509b5edcfd448126e025554230152", "size": 47164},
     "icon.png": {"sha256": "d0fa8c26541ca863e994ad8dea516525439ec3d200dfbb5b868abf1b60be778f", "size": 4988},
-    "index.html": {"sha256": "423b4c9d5ad4c2e26885213dd0a4719a3393bc025ef8c9bbdbd173ea543b3861", "size": 1765},
+    "index.html": {"sha256": "f61f43f82e770b1b03d4c0bf2a764d08ce062cae723f2b07399400a16bb7575d", "size": 1765},
     "js/content.js": {"sha256": "ac3e3c4009867071ce35ecec931ce8a4bb8411d12304bdd942c8416a9bf9f27b", "size": 27395},
     "js/gfx.js": {"sha256": "864e963f50e840156c7419081af093a419ddf9b4915e17d0b4729f48e014a638", "size": 4825},
     "js/i18n.js": {"sha256": "789b9dbd2530ae85ffaa64b67676c1b4e83fa94de3ad9ff81654def471e7b9a4", "size": 76125},
@@ -48,8 +48,8 @@
     "sfx/undo-zip.opus": {"sha256": "dbee90e9e1dadc054a239e40aea1109b9d3a0d20dc08705a29f5a193705d62e2", "size": 15016},
     "sfx/upgrade-servo.opus": {"sha256": "6cba06728fe233998758a2a71ef4138b406245dabf7f4e853ec6b2129dd6b031", "size": 25309},
     "sfx/win-fanfare.opus": {"sha256": "c51c1b78acff73fd6da7c8cb7d2e7aabd6df5d5da28046e962d36a930c3550a9", "size": 39657},
-    "spec.md": {"sha256": "56185e2ebda2d702dab6c5cd3591f8408827080ae207215132942b7f439e30c1", "size": 44406},
-    "starhermit.txt": {"sha256": "35217d5dc1eacda9faf654700fbb53e0e22b7738d2e09388bedf81272cd02f61", "size": 2031}
+    "spec.md": {"sha256": "3cced2995dcbf27367c071001a8f1fd25413d8a622f17909a9d0a5a97e5c220d", "size": 44406},
+    "starhermit.txt": {"sha256": "9aeee6a91d8174ce075e804dcdf1cee12602cf229193073b7e12b9a9fd4374e0", "size": 2031}
   },
   "excluded": ["node_modules/", "package-lock.json", "package.json", "tests/", "tools/", "tsconfig.json"],
   "format": 1
