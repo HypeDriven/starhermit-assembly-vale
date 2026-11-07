@@ -103,9 +103,9 @@ export function hintText(): string {
 }
 export function leaderboardLine(): string | null {
   if (!lb) return null;
-  if (lb === "posting") return T("sh.lbPosting");
-  if (!lb.posted) return T("sh.lbNotPosted");
-  return lb.rank ? T("sh.lbRank", { rank: lb.rank }) : T("sh.lbPosted");
+  if (lb === "posting") return T("starhermit.leaderboardPosting");
+  if (!lb.posted) return T("starhermit.leaderboardNotPosted");
+  return lb.rank ? T("starhermit.leaderboardRank", { rank: lb.rank }) : T("starhermit.leaderboardPosted");
 }
 
 // -- Navigation ---------------------------------------------------------------------

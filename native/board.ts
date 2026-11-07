@@ -22,7 +22,7 @@
 // Drawing uses the browser build's logical units (a cell is `cellSize(cfg)`,
 // 28–64 units) scaled to the board's rectangle on screen, so line widths and
 // proportions match the old canvas at any size.
-import { frame, levels, levelSettings, preferences, type GraphicsLevel } from "starhermit:engine";
+import { frame, levelSettings, preferences, type GraphicsLevel, type QualityTier } from "starhermit:engine";
 import { OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "starhermit:canvas";
 import * as draw from "starhermit:draw";
 import { loadClassic } from "starhermit:script";
@@ -44,11 +44,11 @@ export interface Look {
 }
 const Gfx = (globalThis as unknown as { AVGfx: { resolve(preset: string, env: { reducedMotion: boolean; k: number }): Look } }).AVGfx;
 
-/** The level's speed over the slowest level of its tier (budgets grow ≤ 2× within a tier). */
+const ANCHOR: Record<QualityTier, GraphicsLevel> = { low: "quantum", balanced: "molecular", high: "terrestrial", ultra: "galactic" };
+/** The level's particle budget over its tier's first level's (budgets grow ≤ 2× within a tier). */
 function tierScale(level: GraphicsLevel): number {
   const mine = levelSettings(level);
-  const floor = levels.map((l) => levelSettings(l)).find((s) => s.quality === mine.quality) ?? mine;
-  return floor.teraflops > 0 ? mine.teraflops / floor.teraflops : 1;
+  return mine.particles / levelSettings(ANCHOR[mine.quality]).particles;
 }
 let lookKey = "";
 let look: Look = Gfx.resolve("balanced", { reducedMotion: false, k: 1 });

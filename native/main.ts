@@ -25,7 +25,7 @@ onStart(() => {
 });
 
 onPlayerChange(() => refresh());
-onSessionEnded(() => { noteSignedOut(); toast(T("sh.signedOut")); });
+onSessionEnded(() => { noteSignedOut(); toast(T("starhermit.signedOut")); });
 // Backgrounding pauses a running round (the browser build's visibilitychange).
 onSuspend(() => game.suspend());
 

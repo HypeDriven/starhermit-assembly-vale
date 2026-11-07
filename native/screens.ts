@@ -27,12 +27,11 @@ import { progress, syncStatus } from "./save.js";
 import { isMuted, toggleMute } from "./audio.js";
 
 // -- Toast --------------------------------------------------------------------------
-let toastText: string | null = null;
-let toastUntil = 0;
+let shownToast: ui.Toast | null = null;
+/** One page toast at a time, 20 px above the safe area's bottom (a press still reaches the page). */
 export function toast(text: string): void {
-  toastText = text;
-  toastUntil = frame().time + 2.6;
-  ui.announce(text);
+  shownToast?.dismiss();
+  shownToast = ui.toast!(text, { duration: 2.6, style: "av-toast", dismissible: false, offset: 4 });
 }
 let signedOutNotice = false;
 export function noteSignedOut(): void { signedOutNotice = true; }
@@ -40,11 +39,9 @@ export function noteSignedOut(): void { signedOutNotice = true; }
 // -- Helpers ------------------------------------------------------------------------
 interface View { w: number; h: number; s: number; narrow: boolean; short: boolean }
 function view(): View {
-  const { width, height, safeArea } = frame();
-  const s = ui.preferences().scale;
-  const w = (width - safeArea.left - safeArea.right) / s;
-  const h = (height - safeArea.top - safeArea.bottom) / s;
-  return { w, h, s, narrow: w <= 720, short: h <= 500 && w > h };
+  const vp = ui.viewport!();
+  const w = vp.width, h = vp.height;
+  return { w, h, s: vp.scale, narrow: w <= 720, short: h <= 500 && w > h };
 }
 
 /** Logical width of a styled button's face (padding included). */
@@ -89,19 +86,9 @@ function actionGrid(label: string, list: Btn[], width: number, basis = 220): voi
 
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, gap = 10): void {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  for (const b of list) {
-    const bw = Math.min(width, buttonWidth(b.text, b.style ?? PLAIN));
-    if (rows.at(-1)!.length && used + gap + bw > width) { rows.push([]); used = 0; }
-    used += (rows.at(-1)!.length ? gap : 0) + bw;
-    rows.at(-1)!.push(b);
-  }
-  ui.column(label, () => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => {
-      for (const b of row) button(b, buttonWidth(b.text, b.style ?? PLAIN) > width ? width : null);
-    }, { spacing: gap, align: "center" }));
-  }, { spacing: gap });
+  ui.row(label, () => {
+    for (const b of list) button(b, buttonWidth(b.text, b.style ?? PLAIN) > width ? width : null);
+  }, { wrap: true, width, gap, align: "center" });
 }
 
 function h1(text: string): void { ui.style("av-h1").heading(text); }
@@ -156,7 +143,7 @@ function keysLine(): string {
 // -- Menus --------------------------------------------------------------------------
 function accountText(): string {
   const me = player();
-  if (!me) return T(signedOutNotice ? "sh.signedOut" : "sh.offline");
+  if (!me) return signedOutNotice ? T("starhermit.signedOut") : T("sh.offline");
   const sync = syncStatus();
   return `${T("sh.playingAs", { name: me.displayName.slice(0, 40) })} · ${T(sync === "synced" ? "sh.synced" : sync === "saving" ? "sh.saving" : "sh.syncOff")}`;
 }
@@ -183,8 +170,8 @@ function titleScreen(w: number, v: View): void {
   actionGrid("title-actions", modeButtons("title"), w);
   const s = progress().stats;
   const buttons = [settingsBtn()];
-  if (!player()) buttons.push({ id: "btn-sign-in", text: T("sh.signIn"), act: signIn });
-  else buttons.push({ id: "btn-invite", text: T("sh.invite"), act: () => toast(copyInvite()) });
+  if (!player()) buttons.push({ id: "btn-sign-in", text: T("starhermit.signIn"), act: signIn });
+  else buttons.push({ id: "btn-invite", text: T("starhermit.invite"), act: () => toast(copyInvite()) });
   foot("foot", [T("title.stats", { rounds: s.rounds, wins: s.wins, best: s.bestScore }), accountText(), T("title.fair")], buttons, w);
 }
 
@@ -514,13 +501,6 @@ export function buildUi(): void {
       }, { width: v.w, align: "center" });
     }, scrollTo ? { scrollTo } : {});
   });
-  if (toastText && frame().time > toastUntil) toastText = null;
-  if (toastText) {
-    const text = toastText;
-    ui.place("toast", { anchor: "bottom", y: 20 }, () => {
-      ui.style("av-toast").paragraph(text, Math.min(v.w - 32, 560));
-    });
-  }
 }
 
 /** The page's background (the browser build's body gradient), under the UI. */

@@ -31,11 +31,11 @@ File map:
 | `native/audio.ts` | Clips, synthesized beds, the game's Sound toggle. |
 | `native/save.ts` | The progress as the engine save; conflict merge; the browser build's cloud save and settings migration. |
 | `native/online.ts` | Score posting through `score-script.js`, invite link, sign-in request. |
-| `native/i18n.ts` | Locale from the runtime's interface language; `T(id, vars)` over `js/i18n.js`. |
+| `native/i18n.ts` | Locale from the runtime's interface language; `T(id, vars)` over the engine's `strings`. |
 | `js/rng.js`, `js/rules.js`, `js/content.js` | Pure rules engine, RNG and content (UMD classic scripts; unchanged from the browser build). |
 | `js/store.js` | The save document (pure): migration, checksum, the old wrapped format, merge, `recordResult`, `starsFor`. |
 | `js/gfx.js` | Graphics look model (pure): what each quality tier draws, per-tier budgets. |
-| `js/i18n.js` | Locale tables for every player-facing string in the nine locales. |
+| `assets/strings.json` | Locale tables for every game string in the nine locales (`strings.load`); account and leaderboard lines are the engine's `starhermit.*`. |
 | `score-script.js` | StarHermit platform script (`server=`): range-checks a finished round's score and posts it to the `high-score` leaderboard. |
 | `tools/ui-style.css` → `assets/ui-style.json` | The class-based style sheet and its conversion (`npm run css`, `starhermit css`). |
 | `tools/package-web.mjs` | `npm run package`. |
@@ -260,7 +260,7 @@ Per-tier budgets (`BUDGETS`): the terrain layer's pixel-ratio cap (1 / 1.5 / 2 /
 
 Mix philosophy: the round should sound like a small workshop in a quiet valley. Short dry transients on the effects bus for every logical event, a very quiet brown-noise "valley air" bed on the ambience bus, a 55 Hz low-passed sawtooth hum on the same bus only while auto-run is on, and a slow four-chord generative pad (A–G–F–E minor-ish walk, 5.2 s cycle, ≤0.05 gain) on the music bus. Relative levels: music 0.55, effects 0.9, ambience 0.5. "Sound: on/off" on the Pause screen silences the game. The beds start with the first round and stop when leaving to the title.
 
-Implementation (`native/audio.ts`): at start the game reads `sfx/manifest.json`, binds each `event` to its clip and loads every clip with `loadClip` (in browsers the mixer gets them at the player's first press). One-shots play on the runtime's buses — tool, hint, invalid and ui on "interface", the rest on "effects" — at most once per event within 50 ms. The beds are synthesized on the engine's Web Audio graph (`context`): valley air (2 s of brown noise looped through a 300 Hz low-pass), the factory hum while auto-run runs (55 Hz sawtooth through a 180 Hz low-pass, eased in and out) and the pad (a four-chord walk, one chord every 5.2 s, on "music"); they start with the first round and stop on leaving to the title. The browser build's bus levels (music 0.55, effects 0.9, ambience 0.5) are folded into each sound's gain; the player's volumes, mute and voice limit are the runtime's (Options › Audio). The game's own **Sound: on/off** (Pause screen) is saved in the game settings (`sfx.muted`, with the account when signed in) and silences clips and beds.
+Implementation (`native/audio.ts`): at start the game reads `sfx/manifest.json`, binds each `event` to its clip and loads every clip with `loadClip` (in browsers the mixer gets them at the player's first press). One-shots play on the runtime's buses — tool, hint, invalid and ui on "interface", the rest on "effects" — at most once per event within 50 ms (a `SoundBank` an event). The game's Sound setting is `setMuted` (the engine's game-level mute). The beds are synthesized on the engine's Web Audio graph (`context`): valley air (2 s of brown noise looped through a 300 Hz low-pass), the factory hum while auto-run runs (55 Hz sawtooth through a 180 Hz low-pass, eased in and out) and the pad (a four-chord walk, one chord every 5.2 s, on "music"); they start with the first round and stop on leaving to the title. The browser build's bus levels (music 0.55, effects 0.9, ambience 0.5) are folded into each sound's gain; the player's volumes, mute and voice limit are the runtime's (Options › Audio). The game's own **Sound: on/off** (Pause screen) is saved in the game settings (`sfx.muted`, with the account when signed in) and silences clips and beds.
 
 SFX event table (source of `sfx/manifest.txt`):
 
@@ -291,7 +291,7 @@ The browser build's hidden caption option (no UI) is not ported; every event alr
 
 Nine locales ship for all player-facing text: **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT**.
 
-- **Strings**: `js/i18n.js` holds every screen, the play header, info panel, tools, actions, hints, status lines, refusal reasons, content names (goods, recipes, stages, lessons, challenges, practice presets) and the StarHermit texts, keyed by id; en-GB is the base table, en-US adds US spelling, es-ES and fr-CA add their regional texts over es-419 and fr-FR.
+- **Strings**: `assets/strings.json` holds every screen, the play header, info panel, tools, actions, hints, status lines, refusal reasons, content names (goods, recipes, stages, lessons, challenges, practice presets) and the StarHermit texts, keyed by id; en-GB is the base table, en-US adds US spelling, es-ES and fr-CA add their regional texts over es-419 and fr-FR.
 - **Language**: the runtime's interface language (Options › Language, else the device's) picks the table (`native/i18n.ts`: exact tag, then regional variants such as en-AU → en-GB, es-MX → es-419, then the language). A change shows on the next frame.
 - **Coverage**: `tests/i18n.test.mjs` checks that every id the client uses has a text in every locale with its placeholders intact.
 - Layout allowance: buttons wrap their labels when too long, header items wrap, no text is fixed-width.
@@ -313,7 +313,7 @@ The game is a StarHermit engine script game; everything platform-related goes th
 
 - **Packaging**: `starhermit.txt` (§1) with `engine.capabilities=platform,storage,clipboard`; `.starhermitignore` leaves out `tests/` and `tools/` (the engine's defaults leave out dot-names, `node_modules/`, `package.json`, `tsconfig.json`). `npm run package` writes the web loader and file index after every change; both are committed. Pushing does not publish; publishing is a separate step.
 - **Platform script**: `score-script.js` (unchanged) accepts `{type:'result', scores}` on a practice session, range-checks each score against its board and writes it to the `high-score` board (integer, higher is better, 0–100,000).
-- **Leaderboard**: signed in, every finished round except lessons posts its total (`online.ts submitScore`: `sessions.practice()`, `connectGame`, the result command, the script's `result-ack`); the results screen shows "Posting score…", then the rank among the first 100 ("Leaderboard rank: #n"), "Score posted" or "Score not posted".
+- **Leaderboard**: signed in, every finished round except lessons posts its total (`leaderboards.submitScore`); the results screen shows "Posting score…", then the rank among the first 100 ("Leaderboard rank: #n"), "Score posted" or "Score not posted".
 - **Sign-in**: guests see **Sign in with StarHermit** in the title footer (`requestSignIn`, the runtime's Account flow); signed in, the footer shows **Invite a friend**, which copies the invite link (`clipboard.writeText`) and confirms with a toast. Signing out mid-session shows a toast and keeps saving on the device.
 - **Identity**: the account line reads "Playing as <display name> · progress synced / saving… / cloud sync unavailable" from `player()` and the save's sync state; guests see "Offline — progress is stored on this device."
 - **Saves**: the progress document (`js/store.js`, `{v: 1, progress}`) is the engine save (`saves.save`, schema 1), on the device at once and in the account's cloud slot debounced. When another device saved first, `onConflict` merges both (better records win, unlocks are unioned); a replaced device copy is merged in on `onStatus`.

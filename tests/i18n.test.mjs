@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import { readdirSync, readFileSync } from 'node:fs';
 
 const req = createRequire(import.meta.url);
-const I18n = req('../js/i18n.js');
+const STRINGS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
 const Content = req('../js/content.js');
 const Rules = req('../js/rules.js');
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
@@ -39,17 +39,18 @@ function usedKeys() {
 
 test('the client finds its ids (the scan is not empty)', () => {
   const keys = usedKeys();
-  for (const k of ['m.play', 'act.tick', 'info.contract', 'sh.signIn', 'keys.line', 'lg.source', 'hint.belt']) assert.ok(keys.includes(k), k);
+  for (const k of ['m.play', 'act.tick', 'info.contract', 'sh.offline', 'keys.line', 'lg.source', 'hint.belt']) assert.ok(keys.includes(k), k);
 });
 
 test('every used id has a text in every locale, placeholders intact', () => {
-  assert.deepEqual(I18n.LOCALES, LOCALES);
+  assert.deepEqual(Object.keys(STRINGS), LOCALES);
   const problems = [];
   for (const k of usedKeys()) {
-    const want = (I18n.STRINGS['en-GB'][k] ?? '').match(/\{\w+\}/g)?.sort().join() ?? '';
-    if (!I18n.STRINGS['en-GB'][k]) { problems.push(`en-GB missing ${k}`); continue; }
+    if (k.startsWith('starhermit.')) continue; // the engine's own
+    const want = (STRINGS['en-GB'][k] ?? '').match(/\{\w+\}/g)?.sort().join() ?? '';
+    if (!STRINGS['en-GB'][k]) { problems.push(`en-GB missing ${k}`); continue; }
     for (const loc of LOCALES) {
-      const v = I18n.STRINGS[loc][k];
+      const v = STRINGS[loc][k];
       if (typeof v !== 'string' || !v.length) { problems.push(`${loc} missing ${k}`); continue; }
       if (((v.match(/\{\w+\}/g) ?? []).sort().join()) !== want) problems.push(`${loc} placeholders ${k}`);
     }
@@ -58,14 +59,6 @@ test('every used id has a text in every locale, placeholders intact', () => {
 });
 
 test('every table holds the same ids (no locale left behind)', () => {
-  const keys = Object.keys(I18n.STRINGS['en-GB']).sort();
-  for (const loc of LOCALES) assert.deepEqual(Object.keys(I18n.STRINGS[loc]).sort(), keys, loc);
-});
-
-test('tags pick the nearest table', () => {
-  assert.equal(I18n.pick(['fr-CA']), 'fr-CA');
-  assert.equal(I18n.pick(['es-MX']), 'es-419');
-  assert.equal(I18n.pick(['de']), 'de-DE');
-  assert.equal(I18n.pick(['ja-JP']), 'en-US');
-  assert.equal(I18n.make('de-DE')('hud.gold', { n: 5 }), 'Gold: 5');
+  const keys = Object.keys(STRINGS['en-GB']).sort();
+  for (const loc of LOCALES) assert.deepEqual(Object.keys(STRINGS[loc]).sort(), keys, loc);
 });

@@ -7,9 +7,10 @@
 // runtime's: music → "music", effects and ambience → "effects", the UI click
 // → "interface"; their volumes, mute and the voice limit are the player's
 // (Options › Audio). The game keeps its own "Sound: on/off" (the pause
-// menu), saved in the game's settings (with the account when signed in).
-import { files, frame } from "starhermit:engine";
-import { context, loadClip, play as playClip, type AudioClip, type GainNode, type OscillatorNode, type AudioBufferSourceNode } from "starhermit:audio";
+// menu), saved in the game's settings (with the account when signed in) and
+// applied through the engine's game-level mute.
+import { files } from "starhermit:engine";
+import { SoundBank, context, loadClip, setMuted as muteGame, type GainNode, type OscillatorNode, type AudioBufferSourceNode } from "starhermit:audio";
 import { settings } from "starhermit:storage";
 
 // The browser build's default bus levels, folded into each sound's gain.
@@ -17,8 +18,7 @@ const LEVEL = { music: 0.55, effects: 0.9, ambience: 0.5 };
 const INTERFACE = new Set(["ui", "tool", "hint", "invalid"]);
 
 const clipFor = new Map<string, string>();
-const clips = new Map<string, AudioClip>();
-const lastPlayed = new Map<string, number>();
+const banks = new Map<string, SoundBank>(); // an event's clip, once per event within 50 ms
 
 function readMuted(): boolean {
   try { return settings.get("sfx.muted") === true; } catch { return false; }
@@ -28,19 +28,24 @@ let started = false;
 settings.onChange((key, value) => {
   if (key !== "sfx.muted") return;
   muted = value === true;
-  applyMute();
+  muteGame(muted);
 });
 
 /** Loads the clip table and every clip at the start (a browser hands them
  * to its mixer at the player's first press); a clip that fails stays silent. */
 export async function loadSfx(): Promise<void> {
+  muteGame(muted);
   try {
     const list = files.readJson("sfx/manifest.json") as unknown as { name?: string; event?: string }[];
     for (const e of list) if (e && e.name && e.event && !clipFor.has(e.event)) clipFor.set(e.event, e.name);
   } catch (e) { console.warn(`sfx manifest: ${String(e)}`); }
   await Promise.all([...new Set(clipFor.values())].map(async (name) => {
-    try { clips.set(name, await loadClip(`sfx/${name}.opus`)); }
-    catch (e) { console.warn(`sfx ${name}: ${String(e)}`); }
+    try {
+      const clip = await loadClip(`sfx/${name}.opus`);
+      for (const [event, n] of clipFor) if (n === name) {
+        banks.set(event, new SoundBank({ clips: [clip], minGap: 0.05, bus: INTERFACE.has(event) ? "interface" : "effects", gain: LEVEL.effects }));
+      }
+    } catch (e) { console.warn(`sfx ${name}: ${String(e)}`); }
   }));
 }
 
@@ -48,28 +53,14 @@ export function isMuted(): boolean { return muted; }
 export function setMuted(m: boolean): void {
   muted = m;
   try { settings.set("sfx.muted", m); } catch { /* this session only */ }
-  applyMute();
+  muteGame(m);
 }
 export function toggleMute(): boolean { setMuted(!muted); return muted; }
 
-/** Plays an event's clip (once per event within 50 ms). */
+/** Plays an event's clip (a cue still loading is skipped). */
 export function sfx(event: string): void {
-  if (muted || !started) return;
-  const name = clipFor.get(event);
-  if (!name) return;
-  const now = frame().time;
-  const last = lastPlayed.get(event);
-  if (last !== undefined && now - last < 0.05) return;
-  lastPlayed.set(event, now);
-  const clip = clips.get(name);
-  if (!clip) return;
-  try {
-    playClip(clip, { bus: INTERFACE.has(event) ? "interface" : "effects", gain: LEVEL.effects });
-  } catch {
-    // A clip the mixer lost throws rather than staying silent: load it again.
-    clips.delete(name);
-    loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, () => { /* stays silent */ });
-  }
+  if (!started) return;
+  try { banks.get(event)?.play(); } catch { /* the mixer is full this frame: skip it */ }
 }
 
 // -- The synthesized beds --------------------------------------------------------
@@ -86,7 +77,7 @@ const CHORDS = [
 ];
 
 function startAmbience(): void {
-  if (ambience || muted) return;
+  if (ambience) return;
   try {
     const src = context.createBufferSource();
     src.buffer = context.createNoiseBuffer(2, "brown");
@@ -107,7 +98,7 @@ function stopAmbience(): void {
 }
 
 function startHum(): void {
-  if (hum || muted) return;
+  if (hum) return;
   try {
     const o = context.createOscillator(), g = context.createGain(), f = context.createBiquadFilter();
     o.type = "sawtooth"; o.frequency.value = 55;
@@ -157,7 +148,6 @@ function schedulePad(): void {
 /** The beds start with the first round (the browser build's audio unlock). */
 export function startAudio(): void {
   started = true;
-  if (muted) return;
   startAmbience();
   if (humWanted) startHum();
 }
@@ -169,14 +159,9 @@ export function stopAudio(): void {
   stopHum();
 }
 
-function applyMute(): void {
-  if (muted) { stopAmbience(); stopHum(); }
-  else if (started) { startAmbience(); if (humWanted) startHum(); }
-}
-
 /** Each frame: the pad's next chord every 5.2 s of mixer time while a round plays. */
 export function updateAudio(): void {
-  if (!started || muted || context.state !== "running") return;
+  if (!started || context.state !== "running") return;
   const now = context.currentTime;
   if (now >= nextPad) {
     schedulePad();
