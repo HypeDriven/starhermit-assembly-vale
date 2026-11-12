@@ -11,7 +11,7 @@ const req = createRequire(import.meta.url);
 const STRINGS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
 const Content = req('../js/content.js');
 const Rules = req('../js/rules.js');
-const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
+const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT', 'fr-BE', 'de-BE', 'en-SG', 'en-HK', 'en-BQ', 'es-CO', 'de-IT', 'fr-IT', 'es-CL', 'es-AR', 'es-EC', 'ja-JP', 'nl-BE', 'zh-SG', 'nl-NL', 'id-ID', 'vi-VN', 'de-BR', 'ms-SG', 'ta-SG', 'zh-HK', 'yue-HK', 'fi-FI', 'sv-FI', 'et-EE', 'da-DE', 'sl-IT', 'ru-FI', 'ru-EE', 'lb-BE', 'co-FR', 'eu-FR', 'ca-FR', 'oc-FR', 'fur-IT', 'ca-IT', 'oc-IT', 'ca-ES', 'eu-ES', 'gl-ES', 'su-ID', 'bew-ID', 'km-VN'];
 
 function usedKeys() {
   const keys = new Set();

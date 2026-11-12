@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.js";
 // Assembly Vale on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), natively in the StarHermit client and in browsers on the
 // engine's web runtime. Lay conveyors from the mines to the Exchange, refine
@@ -69,6 +70,10 @@ onUpdate((dt) => {
   updateAudio();
   buildUi();
 });
-onRender(() => {
+onRender(__l10nRender(() => {
   drawBackground();
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.js";
+__installLanguageMenu(true);

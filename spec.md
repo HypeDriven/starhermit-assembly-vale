@@ -386,3 +386,11 @@ QA bar as checkable statements:
 - Daily date from `/api/v1/time` with round-trip offset.
 - Lesson step tracking driven by rules events, with the current step highlighted in the info panel.
 - Star display on the Journey list and a `star` sound on the results screen.
+
+<!-- regional-localization:start -->
+
+### Regional interface languages
+
+The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `nl-NL`, `id-ID`, `vi-VN`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `fi-FI`, `sv-FI`, `et-EE`, `da-DE`, `sl-IT`, `ru-FI`, `ru-EE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `su-ID`, `bew-ID`, `km-VN`.
+
+<!-- regional-localization:end -->

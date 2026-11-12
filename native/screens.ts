@@ -1,3 +1,5 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.js";
+import { openLocalizedOptions as openMenu } from "./l10n/menu.js";
 // The screens, built each frame with starhermit:ui in the browser build's
 // layout (js/app.js and css/style.css there): the title (name, description,
 // key art, the seven mode buttons, the stats / account / fair-play footer
@@ -13,7 +15,7 @@
 // logical px) stacks the columns with the board first; short landscape
 // (≤ 500 px tall) keeps the board and the side columns side by side with
 // the columns scrolling and the legend hidden.
-import { frame, openMenu } from "starhermit:engine";
+import { frame } from "starhermit:engine";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
 import { bindingLabel } from "starhermit:input";
@@ -64,7 +66,7 @@ function button(b: Btn, width: number | null): void {
     const bold = style.includes("av-primary") || (b.selected === true && style.includes("av-tool"));
     opts.content = () => { ui.paragraph(b.text, inner, bold ? { weight: "600" } : {}); };
   }
-  if (ui.style(...style, s).id(b.id).button(b.text, opts)) b.act();
+  if (ui.style(...__l10nStyle(style), __l10nStyle(s)).id(b.id).button(b.text, opts)) b.act();
 }
 
 /** Buttons that flex like the browser build's `.actions .btn { flex: 1 1 220px }`:
@@ -91,15 +93,15 @@ function flow(label: string, list: Btn[], width: number, gap = 10): void {
   }, { wrap: true, width, gap, align: "center" });
 }
 
-function h1(text: string): void { ui.style("av-h1").heading(text); }
+function h1(text: string): void { ui.style(__l10nStyle("av-h1")).heading(text); }
 function h2(text: string, id?: string): void { (id ? ui.id(id) : ui).style("av-h2").heading(text); }
 function p(text: string, width: number, id?: string): void { (id ? ui.id(id) : ui).style("av-p").paragraph(text, Math.min(width, 530)); }
 function list(items: string[], width: number, label: string): void {
   const w = Math.min(width, 600);
   ui.column(label, () => {
     items.forEach((t, i) => ui.row(`${label}-${i}`, () => {
-      ui.style("av-li").label("•");
-      ui.style("av-li").id(`${label}-${i}-t`).paragraph(t, w - 22);
+      ui.style(__l10nStyle("av-li")).label("•");
+      ui.style(__l10nStyle("av-li")).id(`${label}-${i}-t`).paragraph(t, w - 22);
     }, { spacing: 8, align: "start" }));
   }, { spacing: 4, padding: { start: 6 } });
 }
@@ -111,8 +113,8 @@ function art(cls: string, width: number, ratio: number, maxH = Infinity): void {
 
 /** The footer: small notes, then its buttons (`.foot`). */
 function foot(label: string, notes: string[], buttons: Btn[], width: number): void {
-  ui.style("av-foot").column(label, () => {
-    notes.forEach((n, i) => { if (n) ui.style("av-small").id(`${label}-n${i}`).paragraph(n, width); });
+  ui.style(__l10nStyle("av-foot")).column(label, () => {
+    notes.forEach((n, i) => { if (n) ui.style(__l10nStyle("av-small")).id(`${label}-n${i}`).paragraph(n, width); });
     if (buttons.length) flow(`${label}-b`, buttons, width);
   }, { width, spacing: 10, padding: { top: 10 } });
 }
@@ -252,7 +254,7 @@ function resultsScreen(w: number, v: View): void {
   list([T("res.score", { n: st.score.total }), T("res.goods", { n: st.score.goods }), T("res.bonus", { n: st.score.contractBonus }),
     T("res.gold", { n: st.score.goldLeft }), T("res.speed", { n: st.score.speedBonus }), T("res.ticks", { n: ticks })], w, "res-list");
   const lb = game.leaderboardLine();
-  if (lb) ui.style("av-p").id("results-lb").paragraph(lb, w);
+  if (lb) ui.style(__l10nStyle("av-p")).id("results-lb").paragraph(lb, w);
   art(won ? "av-ledger" : "av-ledger-lost", Math.min(w, 520, v.h * 0.3 * 1024 / 576), 1024 / 576);
   const actions: Btn[] = [{ id: "btn-again", text: T("btn.again"), act: game.restart }];
   if (game.kind() === "journey" && game.journeyIndex >= 0 && game.journeyIndex < Content.JOURNEY.length - 1) {
@@ -280,19 +282,19 @@ function header(w: number, v: View): void {
   const tools = pillW.reduce((a, b) => a + b + 10, 0) + btnW.reduce((a, b) => a + b + 10, 0);
   const titleW = ui.measureText(game.stageName(), { kind: "heading", style: ["av-h2", ...(v.short ? [{ text: { size: 17.6 } }] : [])] }).width / s;
   const pillsRow = (): void => {
-    pills.forEach((t, i) => ui.style("av-pill").id(`pill-${i}`).label(t));
+    pills.forEach((t, i) => ui.style(__l10nStyle("av-pill")).id(`pill-${i}`).label(t));
   };
   const titleStyle = ["av-h2", v.short && { text: { size: 17.6 } }];
-  ui.style("av-head").column("head", () => {
+  ui.style(__l10nStyle("av-head")).column("head", () => {
     if (titleW + tools + 10 <= w) {
       ui.row("head-row", () => {
-        ui.style(...titleStyle).id("stage").heading(game.stageName());
+        ui.style(...__l10nStyle(titleStyle)).id("stage").heading(game.stageName());
         ui.spacer();
         pillsRow();
         for (const b of btns) button(b, null);
       }, { width: w, spacing: v.short ? 8 : 10, align: "center" });
     } else {
-      ui.style(...titleStyle).id("stage").heading(game.stageName());
+      ui.style(...__l10nStyle(titleStyle)).id("stage").heading(game.stageName());
       ui.row("head-pills", pillsRow, { spacing: 10, align: "center" });
       flow("head-btns", btns, w, v.short ? 8 : 10);
     }
@@ -303,25 +305,25 @@ function infoPanel(w: number, v: View): void {
   const st = game.state!;
   const pad = v.short ? 8 : 12;
   const inner = w - pad * 2 - 2;
-  ui.style("av-panel").column("info", () => {
+  ui.style(__l10nStyle("av-panel")).column("info", () => {
     const lesson = game.currentLesson();
     if (lesson) {
-      ui.style("av-lesson").id("lesson-text").paragraph(T(`lessonx.${lesson.id}`), inner);
+      ui.style(__l10nStyle("av-lesson")).id("lesson-text").paragraph(T(`lessonx.${lesson.id}`), inner);
       hr(inner);
     }
     for (const good of Object.keys(st.cfg.contracts)) {
       const need = st.cfg.contracts[good]!, have = st.progress[good] || 0;
-      ui.style(have >= need ? "av-done" : "av-row").id(`contract-${good}`).paragraph(T("info.contract", { good: game.goodName(good), have, need }), inner);
+      ui.style(__l10nStyle(have >= need ? "av-done" : "av-row")).id(`contract-${good}`).paragraph(T("info.contract", { good: game.goodName(good), have, need }), inner);
     }
     hr(inner);
-    ui.style("av-row").id("info-score").label(T("info.score", { n: st.score.total }));
-    ui.style("av-dim").id("info-goods").label(T("info.goods", { n: st.score.goods }));
-    ui.style("av-dim").id("info-bonus").label(T("info.bonus", { n: st.score.contractBonus }));
-    ui.style("av-dim").id("info-gold").paragraph(T("info.gold", { n: st.score.goldLeft }), inner);
-    ui.style("av-dim").id("info-speed").label(T("info.speed", { n: st.score.speedBonus }));
-    if (st.cfg.buildLimit) ui.style("av-dim").id("info-builds").label(T("info.builds", { n: st.builds, max: st.cfg.buildLimit }));
+    ui.style(__l10nStyle("av-row")).id("info-score").label(T("info.score", { n: st.score.total }));
+    ui.style(__l10nStyle("av-dim")).id("info-goods").label(T("info.goods", { n: st.score.goods }));
+    ui.style(__l10nStyle("av-dim")).id("info-bonus").label(T("info.bonus", { n: st.score.contractBonus }));
+    ui.style(__l10nStyle("av-dim")).id("info-gold").paragraph(T("info.gold", { n: st.score.goldLeft }), inner);
+    ui.style(__l10nStyle("av-dim")).id("info-speed").label(T("info.speed", { n: st.score.speedBonus }));
+    if (st.cfg.buildLimit) ui.style(__l10nStyle("av-dim")).id("info-builds").label(T("info.builds", { n: st.builds, max: st.cfg.buildLimit }));
     hr(inner);
-    ui.style("av-dim").id("info-selected").paragraph(T("info.selected", { cell: game.describeCell(game.selected.x, game.selected.y) }), inner);
+    ui.style(__l10nStyle("av-dim")).id("info-selected").paragraph(T("info.selected", { cell: game.describeCell(game.selected.x, game.selected.y) }), inner);
   }, { width: w, padding: pad, spacing: 4 });
 }
 
@@ -330,7 +332,7 @@ function toolPanel(w: number, v: View): void {
   const pad = v.short ? 8 : 12;
   const inner = w - pad * 2 - 2;
   const tb = (id: game.Tool, text: string): void => button({ id: `tool-${id}`, text, style: ["av-tool"], selected: game.tool === id, act: () => game.setTool(id) }, inner);
-  ui.style("av-panel").column("tools", () => {
+  ui.style(__l10nStyle("av-panel")).column("tools", () => {
     tb("belt", T("tool.belt", { cost: Rules.beltCost(st) }));
     const cat = Rules.buildCatalog(st);
     for (const c of cat) {
@@ -341,7 +343,7 @@ function toolPanel(w: number, v: View): void {
       button({ id: `tool-machine-${recipe}`, text, style: ["av-tool", ...(c.afford ? [] : ["av-poor"])],
         selected: game.tool === "machine" && game.recipeChoice === recipe, act: () => game.chooseMachine(recipe) }, inner);
     }
-    if (cat.length < 2) ui.style("av-dim").id("tool-none").paragraph(T("tool.none"), inner);
+    if (cat.length < 2) ui.style(__l10nStyle("av-dim")).id("tool-none").paragraph(T("tool.none"), inner);
     tb("rotate", T("tool.rotate"));
     tb("remove", T("tool.remove"));
     if (st.cfg.upgrades) tb("upgrade", T("tool.upgrade"));
@@ -352,7 +354,7 @@ function actionPanel(w: number, v: View): void {
   const pad = v.short ? 8 : 12;
   const inner = w - pad * 2 - 2;
   const primary = ["av-btn", "av-primary", "av-big"];
-  ui.style("av-panel").column("actions", () => {
+  ui.style(__l10nStyle("av-panel")).column("actions", () => {
     button({ id: "act-tick", text: T("act.tick"), style: primary, act: game.doTick }, inner);
     button({ id: "act-auto", text: T(game.auto ? "act.stop" : "act.auto"), style: primary, act: game.toggleAuto }, inner);
     button({ id: "act-hint", text: T("act.hint"), style: primary, act: game.showHint }, inner);
@@ -377,7 +379,7 @@ function legend(w: number): void {
         ui.row(`lg-${it.text}`, () => {
           ui.widget("", { role: "none", size: { width: 14, height: 14 }, style: "av-swatch",
             draw: (r, st) => { draw.roundRect(r.x + st.scale, r.y + st.scale, r.width - 2 * st.scale, r.height - 2 * st.scale, 2 * st.scale, it.c); } });
-          ui.style("av-legend").label(it.text);
+          ui.style(__l10nStyle("av-legend")).label(it.text);
         }, { spacing: 6, align: "center" });
       }
     }, { spacing: 8, align: "center" }));
@@ -451,9 +453,9 @@ function playScreen(w: number, v: View): void {
       ui.column("col-right", () => { toolPanel(side, v); actionPanel(side, v); }, { width: side, spacing: 12 });
     }, { spacing: gap, align: "start" });
   }
-  ui.style("av-foot").column("play-foot", () => {
-    ui.style("av-hint").id("hint").paragraph(game.hintText(), w);
-    ui.style("av-status").id("status").paragraph(game.status() || " ", w);
+  ui.style(__l10nStyle("av-foot")).column("play-foot", () => {
+    ui.style(__l10nStyle("av-hint")).id("hint").paragraph(game.hintText(), w);
+    ui.style(__l10nStyle("av-status")).id("status").paragraph(game.status() || " ", w);
     button({ id: "btn-title-play", text: T("btn.title"), act: game.leaveRound }, null);
   }, { width: w, spacing: 8, padding: { top: v.short ? 6 : 10 } });
 }

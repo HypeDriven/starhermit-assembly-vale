@@ -1,3 +1,5 @@
+// localization-runtime:attached
+import { setLocalizedStyles as __l10nStyles } from "./l10n/font.js";
 // The look: the browser build's css/style.css, rewritten class-based in
 // tools/ui-style.css and converted once with `starhermit css` into
 // assets/ui-style.json, registered at start with the theme the runtime's
@@ -21,5 +23,5 @@ export function initStyles(): void {
   });
   ui.setTokens(css.tokens);
   ui.setAnimations(css.animations);
-  ui.setStyles(css.styles);
+  __l10nStyles(css.styles);
 }

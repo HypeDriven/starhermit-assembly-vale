@@ -1,3 +1,6 @@
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.js";
+// localization-runtime:attached
+import { localizedFont as __l10nFont } from "./l10n/font.js";
 // The board, as the browser build's js/board.js drew it on a 2D canvas: a
 // tabletop diorama of the rules state — the checkered terrain with grass
 // tufts, flowers, rocks and water, belts with rollers and rails, mines,
@@ -475,12 +478,12 @@ function arrow(cx: number, cy: number, dir: Dir | undefined, len: number, color:
 
 function label(text: string, cx: number, cy: number, color: string, size: number | null, keyline = false): void {
   const px = (size ?? Math.round(csL * 0.32)) * u;
-  const m = draw.measureText(text, { size: px, weight: "bold", font: "system-ui" });
+  const m = draw.measureText(text, __l10nDrawOptions({ size: px, weight: "bold", font: __l10nFont("system-ui") }));
   const top = Y(cy) - m.height / 2;
   if (keyline && L.detail === "detailed") {
-    draw.text(text, X(cx + csL * 0.02), top + csL * 0.025 * u, { size: px, weight: "bold", color: "rgba(0,0,0,0.35)", align: "center", clip });
+    draw.text(text, X(cx + csL * 0.02), top + csL * 0.025 * u, __l10nDrawOptions({ size: px, weight: "bold", color: "rgba(0,0,0,0.35)", align: "center", clip }));
   }
-  draw.text(text, X(cx), top, { size: px, weight: "bold", color, align: "center", clip });
+  draw.text(text, X(cx), top, __l10nDrawOptions({ size: px, weight: "bold", color, align: "center", clip }));
 }
 
 function good(it: Item, cx: number, cy: number): void {
