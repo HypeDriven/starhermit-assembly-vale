@@ -1,3 +1,4 @@
+import { showCursor } from "./cursor.js";
 import { withLanguageRender as __l10nRender } from "./l10n/menu.js";
 // Assembly Vale on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), natively in the StarHermit client and in browsers on the
@@ -19,6 +20,7 @@ import { T } from "./i18n.js";
 board.setTweenSource(game.tweenMs);
 
 onStart(() => {
+  showCursor();
   initStyles();
   initSave();
   refresh();
