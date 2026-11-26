@@ -46,7 +46,7 @@
     "native/save.ts": {"sha256": "2463605c3459c932a416dffcc3aff81752313716e1e9f041ed23f150734c7904", "size": 4327},
     "native/screens.ts": {"sha256": "3723587dc9f7f08c42c2c6c8ca8f30e0361de0295213b5f4d451c89d9ab1bce7", "size": 26936},
     "native/style.ts": {"sha256": "ed3c888151aaf9a18e8b43f16b32dadbbc6683b7200074222841fe133776f23a", "size": 1171},
-    "publication.json": {"sha256": "58023859e929f56561e89ecc256495bb4251c7cf266cfec545bf399f5b062376", "size": 4142},
+    "publication.json": {"sha256": "cb3f04e47622fd66680f1d1a989dbfd9a170a9285311267df650a52895b3f4d7", "size": 4141},
     "score-script.js": {"sha256": "4133359e8234cac920651c89f79485aa401cdca970720662e50150de4431f600", "size": 2487},
     "sfx/contract-stamp.opus": {"sha256": "4220462a69a43bde83858fee5f39b54eee77f1208ac2182508a755354dbfa9d8", "size": 23411},
     "sfx/conveyor-motor.opus": {"sha256": "c5c1fa64647d2fccd463d5d2c96334713258c4b8a7fe76bf80d6ba532a0fb938", "size": 11767},
@@ -69,7 +69,7 @@
     "sfx/undo-zip.opus": {"sha256": "dbee90e9e1dadc054a239e40aea1109b9d3a0d20dc08705a29f5a193705d62e2", "size": 15016},
     "sfx/upgrade-servo.opus": {"sha256": "6cba06728fe233998758a2a71ef4138b406245dabf7f4e853ec6b2129dd6b031", "size": 25309},
     "sfx/win-fanfare.opus": {"sha256": "c51c1b78acff73fd6da7c8cb7d2e7aabd6df5d5da28046e962d36a930c3550a9", "size": 39657},
-    "spec.md": {"sha256": "6a7ab01cbba6269987491ad25fb61f2928589f0edc91ddac364615d2a1cbe0b2", "size": 46032},
+    "spec.md": {"sha256": "3a98ca7e3c530343850b7eb487c47268a12e8fc346984c89cabeb8cbf5e1a214", "size": 46066},
     "starhermit.txt": {"sha256": "56da1aab113ffbd888644b56ae91c48de0d83dedd80f1a38140b781c23e2fb73", "size": 2252}
   },
   "excluded": ["node_modules/", "package-lock.json", "package.json", "tests/", "tools/", "tsconfig.json"],
