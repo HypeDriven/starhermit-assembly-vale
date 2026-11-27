@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:00:57.668237+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T19:43:17.906867+00:00",
+    "coverArtUpdatedAt": "2026-11-27T07:45:29.567249+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T19:43:17.896455+00:00",
+      "deployedAt": "2026-11-27T07:45:29.557109+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.51.0",
+      "engineVersion": "1.52.0",
       "deployWarning": null
     },
     "description": "Build conveyor routes and refining machines to fulfill factory contracts within a limited number of ticks.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T19:43:17.898Z",
-  "sourceCommit": "b5361c8284ad540928faec5d97188374fb7c9aeb",
-  "bytesReceived": 4503085,
-  "archiveSha256": "c6a419436bfd19f610418dcf1d0f27e50e0e9dbb00fc0f6cf0e73e7a26815a2e",
+  "publishedAt": "2026-11-27T07:45:29.833Z",
+  "sourceCommit": "9fb7622df5f2696da7d7e72a6308e465b41a0308",
+  "bytesReceived": 4503077,
+  "archiveSha256": "91ae101504f3420f85473684bcea9f48b16966cc2f6cf463b3b1f21847bab724",
   "indexSha256": "b0a7b66611a428d08d6d7d25dc7a1be30aeb0734accfb13011b89ab76f0c9745",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 4503085,
+    "bytesReceived": 4503077,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.51.0",
+    "engineVersion": "1.52.0",
     "deployWarning": null
   },
   "liveVerification": {
